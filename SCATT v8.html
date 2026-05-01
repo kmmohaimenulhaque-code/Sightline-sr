@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCATT Pro Fixed</title>
+
+<style>
+:root {
+--bg: #f4f1eb;
+--panel: #ffffff;
+--accent: #7a9483;
+--accent2: #d4a373;
+--text: #2c3e50;
+}
+
+/* GLOBAL SCROLL ENABLED */
+body {
+margin: 0;
+font-family: sans-serif;
+background: var(--bg);
+color: var(--text);
+overflow-y: auto;
+}
+
+/* TARGET VIEW LOCKED */
+#viewport {
+position: fixed;
+inset: 0;
+background: radial-gradient(circle, #fff, #e8e4d9);
+overflow: hidden;
+display: none;
+}
+
+/* TARGET */
+#target {
+position: absolute;
+width: 2cm;
+height: 2cm;
+background: white;
+border: 1px solid #ccc;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+}
+
+#bull {
+width: 0.6cm;
+height: 0.6cm;
+background: black;
+border-radius: 50%;
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+}
+
+canvas {
+position: fixed;
+inset: 0;
+pointer-events: none;
+}
+
+/* HUD */
+#hud {
+position: fixed;
+top: 0;
+width: 100%;
+background: var(--panel);
+padding: 10px;
+display: flex;
+justify-content: space-between;
+font-weight: bold;
+}
+
+/* CONTROLS */
+#controls {
+position: fixed;
+bottom: 20px;
+width: 100%;
+display: flex;
+justify-content: space-between;
+padding: 0 20px;
+}
+
+button {
+padding: 15px;
+border: none;
+background: var(--accent2);
+color: white;
+border-radius: 50%;
+}
+
+/* ANALYSIS SCREEN */
+#analysis {
+display: none;
+padding: 20px;
+font-size: 0.75rem; /* SMALLER FONT */
+}
+
+#analysis canvas {
+position: relative;
+height: 200px;
+border: 1px solid #ccc;
+}
+</style>
+</head>
+
+<body>
+
+<div id="start">
+<button onclick="start()">START</button>
+</div>
+
+<div id="viewport">
+<div id="hud">
+<div>SHOT <span id="shot">1</span></div>
+<div id="timer">60</div>
+<div>SCORE <span id="score">0</span></div>
+</div>
+
+<div id="target">
+<div id="bull"></div>
+</div>
+
+<canvas id="trace"></canvas>
+
+<div id="controls">
+<button onclick="move(-1,0)">←</button>
+<button onclick="fire()">FIRE</button>
+<button onclick="move(1,0)">→</button>
+</div>
+</div>
+
+<div id="analysis">
+<h3>Shot Analysis</h3>
+<p>Score: <span id="aScore"></span></p>
+<p>Error (mm): <span id="aErr"></span></p>
+<canvas id="aTrace"></canvas>
+<button onclick="next()">Next Shot</button>
+</div>
+
+<script>
+const state = {
+x: 0,
+y: 0,
+trace: [],
+shot: 1,
+total: 0,
+timer: 60,
+firing: false
+};
+
+const canvas = document.getElementById('trace');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+}
+resize();
+
+function start() {
+document.getElementById('start').style.display = "none";
+document.getElementById('viewport').style.display = "block";
+reset();
+loop();
+}
+
+function reset() {
+state.x = 0;
+state.y = 0;
+state.trace = [];
+state.timer = 60;
+state.firing = false;
+ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+function loop() {
+if (!state.firing) {
+state.timer -= 0.016;
+document.getElementById('timer').innerText = state.timer.toFixed(1);
+
+const swayX = Math.sin(Date.now()/300)*5;
+const swayY = Math.cos(Date.now()/400)*5;
+
+const px = state.x + swayX;
+const py = state.y + swayY;
+
+state.trace.push({x:px, y:py});
+
+ctx.beginPath();
+ctx.moveTo(canvas.width/2, canvas.height/2);
+ctx.lineTo(canvas.width/2 + px, canvas.height/2 + py);
+ctx.stroke();
+
+if (state.timer <= 0) fire();
+}
+
+requestAnimationFrame(loop);
+}
+
+function move(dx, dy) {
+state.x += dx * 2;
+state.y += dy * 2;
+}
+
+function fire() {
+if (state.firing) return;
+
+state.firing = true;
+
+const last = state.trace[state.trace.length - 1];
+const dist = Math.hypot(last.x, last.y);
+
+const score = Math.max(0, 10 - dist/10).toFixed(1);
+
+state.total += parseFloat(score);
+
+document.getElementById('viewport').style.display = "none";
+document.getElementById('analysis').style.display = "block";
+
+document.getElementById('aScore').innerText = score;
+document.getElementById('aErr').innerText = dist.toFixed(2);
+}
+
+function next() {
+state.shot++;
+document.getElementById('shot').innerText = state.shot;
+document.getElementById('score').innerText = state.total.toFixed(1);
+
+document.getElementById('analysis').style.display = "none";
+document.getElementById('viewport').style.display = "block";
+
+reset();
+}
+</script>
+
+</body>
+</html>

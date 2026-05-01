@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | Steyr LP Edition</title>
+<style>
+:root {
+/* Aesthetic Palette */
+--bg-main: #f4f1eb;
+--bg-grad: radial-gradient(circle at center, #fdfbf7 0%, #e8e4d9 100%);
+--panel-bg: rgba(255, 255, 255, 0.9);
+--text-dark: #2c3e50;
+--text-muted: #7f8c8d;
+--accent-sage: #7a9483;
+--accent-terra: #d4a373;
+--trace-color: #5c7cfa;
+
+/* STEP 1: Angular Size Constants for 1m Viewing Distance */
+--phys-card: 1.70cm;
+--phys-black: 0.595cm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+/* Removed overflow: hidden and fixed height to allow scrolling on non-simulation pages */
+body {
+background: var(--bg-main);
+color: var(--text-dark);
+}
+
+/* Target simulation page - fixed position and overflow hidden to prevent scrolling */
+#viewport {
+position: fixed; inset: 0;
+background: var(--bg-grad);
+display: flex; align-items: center; justify-content: center;
+z-index: 1;
+overflow: hidden;
+}
+
+/* TARGET RENDERING - Uses physical CM for consistency */
+#target-master {
+position: absolute;
+width: var(--phys-card);
+height: var(--phys-card);
+background: #fff;
+border: 0.2px solid #d1ccc0;
+display: flex; align-items: center; justify-content: center;
+box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.ring-black {
+position: absolute;
+border-radius: 50%;
+width: var(--phys-black);
+height: var(--phys-black);
+background: #111;
+}
+
+#live-trace-canvas {
+position: fixed; top: 0; left: 0;
+width: 100vw; height: 100vh;
+pointer-events: none; opacity: 0.7; z-index: 5;
+}
+
+/* SIGHTS */
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; pointer-events: none; }
+#sight-layer { position: absolute; transform: translate(-50%, -50%); }
+.front-blade { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 12px; height: 40px; background: #222; border-top: 1.5px solid #555; }
+.rear-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 40px; border-left: 20px solid #222; border-right: 20px solid #222; border-bottom: 20px solid #222; }
+
+/* UI ELEMENTS */
+.hud-overlay {
+position: fixed; top: 0; width: 100%; padding: 15px 25px;
+display: flex; justify-content: space-between; align-items: center;
+background: var(--panel-bg); backdrop-filter: blur(5px);
+border-bottom: 1px solid #e0dbce; border-top: 4px solid var(--accent-sage);
+z-index: 60; font-weight: 600;
+}
+
+#controls { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; pointer-events: none; z-index: 70; }
+.joy-base { pointer-events: auto; position: relative; width: 120px; height: 120px; background: #fff; border-radius: 50%; border: 2px solid #e0dbce; touch-action: none; }
+.btn-move { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.65rem; font-weight: bold; border: 1px solid #f0ece1; cursor: pointer; }
+#fire-btn { pointer-events: auto; width: 85px; height: 85px; border-radius: 50%; background: var(--accent-terra); border: 4px solid #fff; color: #fff; font-weight: 900; cursor: pointer; box-shadow: 0 5px 15px rgba(212, 163, 115, 0.4); }
+
+/* Changed from position: fixed to allow standard scrolling */
+.screen {
+position: relative; min-height: 100vh; padding: 20px 0; z-index: 100;
+display: flex; align-items: center; justify-content: center; background: var(--bg-main);
+}
+.hidden { display: none !important; }
+
+/* Reduced font sizes throughout the analysis monitor */
+.monitor-frame { background: #fff; color: var(--text-dark); padding: 1rem; border-radius: 8px; border: 1px solid #e0dbce; width: 100%; font-size: 0.8rem; }
+#sc-score { font-size: 2rem; font-weight: 900; color: var(--accent-sage); }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.stat-box { background: #fdfbf7; padding: 6px; border: 1px solid #e0dbce; border-radius: 4px; font-size: 0.8rem; }
+.stat-box small { font-size: 0.5rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; display: block; }
+#trace-canvas { background: #fdfbf7; width: 100%; height: 200px; border: 1px solid #e0dbce; margin: 10px 0; border-radius: 4px; }
+.premium-btn { background: var(--accent-sage); color: #fff; padding: 12px; width: 100%; border: none; border-radius: 4px; font-weight: 800; cursor: pointer; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div id="calibrate" style="width: 1cm; visibility: hidden; position: absolute;"></div>
+
+<div id="app">
+<div id="setup-screen" class="screen">
+<div style="background: var(--panel-bg); padding: 40px; border-radius: 15px; text-align: center; border: 1px solid #e0dbce;">
+<h1 style="color:var(--accent-sage); letter-spacing:2px; margin-bottom: 5px;">STEYR PRO</h1>
+<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:20px;">10m Match Simulation (1.0m Scaled)</p>
+<button onclick="initSim()" style="background:var(--accent-sage); color:#fff; border:none; border-radius:4px; padding:15px 40px; font-weight:bold; cursor:pointer;">ENTER RANGE</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="hud-overlay">
+<div style="color:var(--accent-sage);">SHOT <span id="hud-shot">1</span></div>
+<div id="hud-timer" style="font-family:monospace; font-size:1.2rem;">60.00</div>
+<div>SCORE: <span id="hud-total">0.0</span></div>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div id="bullseye-coord" style="position:absolute; top:50%; left:50%;"></div>
+</div>
+
+<canvas id="live-trace-canvas"></canvas>
+
+<div id="sight-base">
+<div id="sight-layer">
+<div class="front-blade"><div id="aim-tip" style="position:absolute; top:0; left:50%;"></div></div>
+<div class="rear-notch"></div>
+</div>
+</div>
+
+<div id="controls">
+<div class="joy-base">
+<div class="btn-move" style="top:2px;left:40px;" onmousedown="move(0,-1)" onmouseup="stop()" ontouchstart="move(0,-1)" ontouchend="stop()">UP</div>
+<div class="btn-move" style="bottom:2px;left:40px;" onmousedown="move(0,1)" onmouseup="stop()" ontouchstart="move(0,1)" ontouchend="stop()">DN</div>
+<div class="btn-move" style="left:2px;top:40px;" onmousedown="move(-1,0)" onmouseup="stop()" ontouchstart="move(-1,0)" ontouchend="stop()">LT</div>
+<div class="btn-move" style="right:2px;top:40px;" onmousedown="move(1,0)" onmouseup="stop()" ontouchstart="move(1,0)" ontouchend="stop()">RT</div>
+</div>
+<button id="fire-btn" onclick="fire()">FIRE</button>
+</div>
+</div>
+
+<div id="scatt-screen" class="screen hidden">
+<div style="background: var(--panel-bg); padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; margin: auto;">
+<div class="monitor-frame">
+<div style="display:flex; justify-content:space-between; align-items:baseline;">
+<h2 style="font-size:0.7rem; color:var(--text-muted);">SHOT ANALYSIS</h2>
+<span id="sc-score">0.0</span>
+</div>
+<canvas id="trace-canvas"></canvas>
+<div class="stat-grid">
+<div class="stat-box"><small>Stability</small><b><span id="sc-hold">0</span>%</b></div>
+<div class="stat-box"><small>Correction</small><b><span id="sc-drop">0</span> cm</b></div>
+<div class="stat-box"><small>Error mm</small><b><span id="sc-dist">0</span> mm</b></div>
+<div class="stat-box"><small>Time</small><b><span id="sc-time">0</span>s</b></div>
+</div>
+</div>
+<button class="premium-btn" onclick="nextShot()">NEXT SHOT</button>
+</div>
+</div>
+</div>
+
+<script>
+const state = {
+total: 0, shotNum: 1, userX: 0, userY: 0, oscTime: 0,
+timer: 60, currentTrace: [], isFiring: false,
+pelletDropCm: 0,
+pxPerMm: 0, // Calculated during init
+audio: new (window.AudioContext || window.webkitAudioContext)()
+};
+
+// ISSF Regulation diameters (mm) for a 10m Air Pistol target
+// In our 1m scaled simulation, these are divided by 10 for logic
+const RINGS = [
+{ d: 11.5, val: 10.0 }, // 10 ring
+{ d: 27.5, val: 9.0 }, // 9 ring
+{ d: 43.5, val: 8.0 }, // 8 ring
+{ d: 59.5, val: 7.0 }, // 7 ring
+{ d: 75.5, val: 6.0 }, // 6 ring
+{ d: 91.5, val: 5.0 },
+{ d: 107.5, val: 4.0 },
+{ d: 123.5, val: 3.0 },
+{ d: 139.5, val: 2.0 },
+{ d: 155.5, val: 1.0 }
+];
+
+function initSim() {
+// STEP 2: Cross-Device Calibration
+// Measure how many pixels the browser uses for 1cm on THIS device
+const cmMeasure = document.getElementById('calibrate').getBoundingClientRect().width;
+state.pxPerMm = cmMeasure / 10;
+
+document.getElementById('setup-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+if (state.audio.state === 'suspended') state.audio.resume();
+resetShot();
+requestAnimationFrame(loop);
+}
+
+function resetShot() {
+state.timer = 60; state.currentTrace = []; state.userX = 0; state.userY = 0;
+state.isFiring = false;
+
+// STEP 3: Precise Pellet Drop Correction (1.9 to 2.3 cm)
+state.pelletDropCm = (Math.random() * (2.3 - 1.9) + 1.9).toFixed(2);
+
+document.getElementById('hud-shot').innerText = state.shotNum;
+document.getElementById('hud-total').innerText = state.total.toFixed(1);
+
+const c = document.getElementById('live-trace-canvas');
+c.width = window.innerWidth;
+c.height = window.innerHeight;
+}
+
+function loop() {
+if(state.isFiring) return; // This was halting the loop indefinitely on the first shot
+state.oscTime += 0.015;
+state.timer -= 0.016;
+document.getElementById('hud-timer').innerText = Math.max(0, state.timer).toFixed(2);
+
+// Natural sway
+const ox = (Math.sin(state.oscTime * 0.7) * 6) + (Math.sin(state.oscTime * 1.9) * 2);
+const oy = (Math.cos(state.oscTime * 0.6) * 5) + (Math.sin(state.oscTime * 1.4) * 3);
+
+const tx = state.userX + ox;
+const ty = state.userY + oy;
+
+document.getElementById('sight-layer').style.transform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px))`;
+
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+
+// Map coordinates relative to bullseye center
+const currentPos = { x: tip.left - bull.left, y: tip.top - bull.top };
+state.currentTrace.push(currentPos);
+
+drawLiveTrace(currentPos);
+if(state.timer <= 0) fire();
+requestAnimationFrame(loop);
+}
+
+function drawLiveTrace(pos) {
+const c = document.getElementById('live-trace-canvas');
+const ctx = c.getContext('2d');
+const cx = c.width / 2; const cy = c.height / 2;
+
+ctx.strokeStyle = "var(--trace-color)";
+ctx.lineWidth = 2;
+ctx.beginPath();
+const start = state.currentTrace[Math.max(0, state.currentTrace.length - 2)];
+ctx.moveTo(cx + start.x, cy + start.y);
+ctx.lineTo(cx + pos.x, cy + pos.y);
+ctx.stroke();
+}
+
+let mInt;
+function move(dx, dy) { mInt = setInterval(() => { state.userX += dx * 1.5; state.userY += dy * 1.5; }, 16); }
+function stop() { clearInterval(mInt); }
+
+function calculateScore(distPx) {
+// Convert screen pixels back to real-world mm for the scoring logic
+const distMm = distPx / state.pxPerMm;
+
+// Scaled factor: 10m target seen at 1m is 1/10th size
+// So a 11.5mm ring on a real target is 1.15mm in our simulation
+const scaledDist = distMm * 10;
+
+if (scaledDist <= 5.0) return (10.9 - (scaledDist / 5) * 0.5).toFixed(1);
+
+for (let i = 0; i < RINGS.length; i++) {
+if (scaledDist <= RINGS[i].d) {
+const prevD = i === 0 ? 0 : RINGS[i-1].d;
+const ratio = (scaledDist - prevD) / (RINGS[i].d - prevD);
+const base = i === 0 ? 10.4 : RINGS[i-1].val;
+return (base - ratio).toFixed(1);
+}
+}
+return "0.0";
+}
+
+function fire() {
+state.isFiring = true;
+beep(180, 'square', 0.1);
+const lp = state.currentTrace[state.currentTrace.length - 1];
+const distPx = Math.hypot(lp.x, lp.y);
+
+const score = calculateScore(distPx);
+state.total += parseFloat(score);
+
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('scatt-screen').classList.remove('hidden');
+
+document.getElementById('sc-score').innerText = score;
+document.getElementById('sc-drop').innerText = state.pelletDropCm;
+document.getElementById('sc-dist').innerText = (distPx / state.pxPerMm).toFixed(2);
+document.getElementById('sc-time').innerText = (60 - state.timer).toFixed(1);
+
+const last60 = state.currentTrace.slice(-60);
+let moveSum = 0;
+for(let i=1; i<last60.length; i++) {
+moveSum += Math.hypot(last60[i].x - last60[i-1].x, last60[i].y - last60[i-1].y);
+}
+document.getElementById('sc-hold').innerText = Math.max(0, Math.round(100 - (moveSum * 0.4)));
+
+drawTraceAnalysis();
+}
+
+function drawTraceAnalysis() {
+const c = document.getElementById('trace-canvas');
+const ctx = c.getContext('2d');
+const w = c.width = c.offsetWidth;
+const h = c.height = c.offsetHeight;
+ctx.translate(w/2, h/2);
+
+// Draw Rings
+ctx.strokeStyle = "#e0dbce";
+RINGS.forEach(r => {
+ctx.beginPath();
+// scaled down for simulation UI (mm / 10 * pxPerMm)
+ctx.arc(0, 0, (r.d / 20) * (state.pxPerMm * 10), 0, Math.PI*2);
+ctx.stroke();
+});
+
+// Draw Path (zoomed for analysis)
+ctx.lineWidth = 1.5; ctx.strokeStyle = "var(--trace-color)";
+ctx.beginPath();
+state.currentTrace.forEach((p, i) => {
+if(i === 0) ctx.moveTo(p.x * 5, p.y * 5);
+else ctx.lineTo(p.x * 5, p.y * 5);
+});
+ctx.stroke();
+
+const lp = state.currentTrace[state.currentTrace.length - 1];
+ctx.fillStyle = "var(--accent-terra)"; ctx.beginPath();
+ctx.arc(lp.x * 5, lp.y * 5, 4, 0, Math.PI*2); ctx.fill();
+}
+
+function nextShot() {
+state.shotNum++;
+document.getElementById('scatt-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+resetShot();
+requestAnimationFrame(loop); // <-- FIX: Restart the rendering loop for subsequent shots
+}
+
+function beep(f, t, d) {
+try {
+const o = state.audio.createOscillator(); const g = state.audio.createGain();
+o.type = t; o.frequency.value = f;
+g.gain.setValueAtTime(0.1, state.audio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.01, state.audio.currentTime + d);
+o.connect(g); g.connect(state.audio.destination);
+o.start(); o.stop(state.audio.currentTime + d);
+} catch(e) {}
+}
+</script>
+</body>
+</html>
+

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | Steyr LP Edition</title>
+<style>
+:root {
+--bg-main: #f4f1eb;
+--bg-grad: radial-gradient(circle at center, #fdfbf7 0%, #e8e4d9 100%);
+--panel-bg: rgba(255, 255, 255, 0.95);
+--text-dark: #1a1a1a;
+--text-muted: #666;
+--accent-sage: #2d5a27;
+--accent-terra: #b45309;
+--trace-live: #2563eb;
+--trace-history: rgba(100, 116, 139, 0.3);
+--danger: #dc2626;
+--phys-card: 1.70cm;
+--phys-black: 0.595cm;
+--phys-10ring: 0.12cm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+body { background: var(--bg-main); color: var(--text-dark); min-height: 100vh; overflow: hidden; }
+
+.screen { position: relative; min-height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center; }
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel-bg);
+padding: 1.5rem;
+border-radius: 1rem;
+border: 1px solid #d1d5db;
+width: 95%;
+max-width: 440px;
+box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+text-align: center;
+}
+
+h1 { font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-sage); font-size: 1.2rem; margin-bottom: 1rem; }
+
+/* SCATT HUD */
+.match-stats {
+position: fixed; top: 10px; width: 90%; left: 50%; transform: translateX(-50%);
+background: #000; color: #0f0; padding: 10px; border-radius: 4px;
+display: flex; justify-content: space-between; font-family: monospace; font-size: 1rem; z-index: 100;
+}
+
+#viewport { position: fixed; inset: 0; background: var(--bg-grad); z-index: 1; display: flex; align-items: center; justify-content: center; }
+
+#target-master {
+position: absolute; width: var(--phys-card); height: var(--phys-card);
+background: #fff; display: flex; align-items: center; justify-content: center;
+}
+.ring-black { position: absolute; border-radius: 50%; width: var(--phys-black); height: var(--phys-black); background: #000; }
+
+#live-trace-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0.8; }
+
+/* SIGHTS */
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; pointer-events: none; }
+.front-i { position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%); width: 12px; height: 40px; background: #000; border-top: 2px solid #444; }
+.rear-u { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 60px; height: 40px; border-left: 20px solid #000; border-right: 20px solid #000; border-bottom: 20px solid #000; }
+#aim-tip { position: absolute; top: 0; left: 50%; }
+
+/* ANALYSIS BOXES */
+.scatt-monitor {
+background: #111; color: #eee; padding: 10px; border-radius: 6px; margin: 10px 0; text-align: left;
+}
+#trace-canvas { background: #fdfbf7; width: 100%; height: 220px; border-radius: 4px; margin-top: 5px; }
+
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.stat-item { background: #222; padding: 8px; border-radius: 4px; border-left: 3px solid var(--accent-sage); }
+.stat-item label { display: block; font-size: 0.6rem; color: #888; text-transform: uppercase; }
+.stat-item span { font-family: monospace; font-size: 1rem; font-weight: bold; color: #fff; }
+
+.btn {
+background: var(--accent-sage); color: white; border: none; padding: 0.8rem;
+border-radius: 0.5rem; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px;
+}
+
+#controls { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; z-index: 70; }
+.d-pad { width: 120px; height: 120px; background: rgba(255,255,255,0.8); border-radius: 50%; position: relative; }
+.d-btn { position: absolute; width: 40px; height: 40px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #ccc; font-weight: bold; }
+.btn-up { top: 0; left: 40px; } .btn-down { bottom: 0; left: 40px; } .btn-left { top: 40px; left: 0; } .btn-right { top: 40px; right: 0; }
+
+#fire-btn { width: 80px; height: 80px; border-radius: 50%; background: var(--danger); color: white; border: 4px solid #fff; font-weight: 900; }
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup" class="screen">
+<div class="card">
+<h1>SCATT Professional</h1>
+<p style="font-size: 0.8rem; margin-bottom: 1.5rem;">Electronic Training System | 10m Air Pistol</p>
+<button class="btn" onclick="initGame()">START TRAINING SESSION</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="match-stats">
+<div>SHOT: <span id="hud-shot">1</span>/60</div>
+<div id="hud-timer">0.00</div>
+<div style="color: #fbbf24">LAST: <span id="hud-last">0.0</span></div>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div id="bullseye-coord"></div>
+</div>
+
+<canvas id="live-trace-canvas"></canvas>
+
+<div id="sight-base">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+
+<div id="controls">
+<div class="d-pad">
+<div class="d-btn btn-up" onmousedown="move(0,-2)" onmouseup="stop()">↑</div>
+<div class="d-btn btn-down" onmousedown="move(0,2)" onmouseup="stop()">↓</div>
+<div class="d-btn btn-left" onmousedown="move(-2,0)" onmouseup="stop()">←</div>
+<div class="d-btn btn-right" onmousedown="move(2,0)" onmouseup="stop()">→</div>
+</div>
+<button id="fire-btn" onclick="fire()">SHOT</button>
+</div>
+</div>
+
+<div id="analysis" class="screen hidden">
+<div class="card">
+<div style="font-size: 0.8rem; color: var(--text-muted);">SHOT RESULT</div>
+<div style="font-size: 3rem; font-weight: 900; color: var(--accent-sage);" id="ana-score">10.6</div>
+
+<div class="scatt-monitor">
+<div style="display: flex; justify-content: space-between; font-size: 0.6rem; font-weight: bold;">
+<span>2D MUZZLE TRACE (OVERLAY)</span>
+<span style="color: var(--accent-terra)">YELLOW = CURRENT SHOT</span>
+</div>
+<canvas id="trace-canvas"></canvas>
+
+<div class="stat-row">
+<div class="stat-item"><label>Hold Stability</label><span id="sc-hold">92%</span></div>
+<div class="stat-item"><label>Realization</label><span id="sc-real">88%</span></div>
+<div class="stat-item"><label>Hold Time</label><span id="sc-time">4.2s</span></div>
+<div class="stat-item"><label>Distance (mm)</label><span id="sc-dist">1.2</span></div>
+</div>
+</div>
+
+<button class="btn" style="background: #111" onclick="resetForNextShot()">CONTINUE SERIES</button>
+</div>
+</div>
+</div>
+
+<script>
+const state = {
+shot: 1, total: 0,
+sightX: 0, sightY: 0,
+currentTrace: [], // The 2-second live buffer
+shotHistory: [], // The last 6 shots for overlay
+isFiring: false,
+startTime: 0,
+pxPerMm: 4.5,
+loopId: null
+};
+
+function initGame() {
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+state.startTime = Date.now();
+resetShot();
+loop();
+}
+
+function resetShot() {
+state.currentTrace = [];
+state.isFiring = false;
+state.sightX = (Math.random() - 0.5) * 40;
+state.sightY = (Math.random() - 0.5) * 40;
+document.getElementById('hud-shot').innerText = state.shot;
+}
+
+function loop() {
+if (state.isFiring) return;
+
+const now = Date.now();
+const elapsed = (now - state.startTime) / 1000;
+document.getElementById('hud-timer').innerText = elapsed.toFixed(2);
+
+// Natural Tremor Physics
+const tremorX = Math.sin(now * 0.005) * 4 + Math.cos(now * 0.011) * 2;
+const tremorY = Math.cos(now * 0.004) * 4 + Math.sin(now * 0.009) * 2;
+
+document.getElementById('sight-base').style.transform =
+`translate(${state.sightX + tremorX}px, ${state.sightY + tremorY}px)`;
+
+// Calculate 2D position relative to center
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+
+const pos = {
+x: tip.left - bull.left,
+y: tip.top - bull.top,
+t: now
+};
+
+state.currentTrace.push(pos);
+// Only keep last 2 seconds for the live SCATT window
+state.currentTrace = state.currentTrace.filter(p => now - p.t < 2000);
+
+drawLiveTrace();
+state.loopId = requestAnimationFrame(loop);
+}
+
+function drawLiveTrace() {
+const c = document.getElementById('live-trace-canvas');
+const ctx = c.getContext('2d');
+c.width = window.innerWidth;
+c.height = window.innerHeight;
+
+if (state.currentTrace.length < 2) return;
+
+ctx.beginPath();
+ctx.strokeStyle = "rgba(37, 99, 235, 0.6)";
+ctx.lineWidth = 2;
+
+const ox = window.innerWidth / 2;
+const oy = window.innerHeight / 2;
+
+state.currentTrace.forEach((p, i) => {
+if (i === 0) ctx.moveTo(ox + p.x, oy + p.y);
+else ctx.lineTo(ox + p.x, oy + p.y);
+});
+ctx.stroke();
+}
+
+function fire() {
+state.isFiring = true;
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+
+const dx = tip.left - bull.left;
+const dy = tip.top - bull.top;
+const dist = Math.hypot(dx, dy);
+
+// Calculate SCATT score (roughly)
+const score = Math.max(0, 10.9 - (dist / state.pxPerMm)).toFixed(1);
+state.total += parseFloat(score);
+
+// Store result for history
+const record = {
+trace: [...state.currentTrace],
+score: score,
+dist: (dist / state.pxPerMm).toFixed(2),
+time: document.getElementById('hud-timer').innerText
+};
+state.shotHistory.push(record);
+if (state.shotHistory.length > 6) state.shotHistory.shift();
+
+showAnalysis(record);
+}
+
+function showAnalysis(record) {
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('analysis').classList.remove('hidden');
+
+document.getElementById('ana-score').innerText = record.score;
+document.getElementById('hud-last').innerText = record.score;
+document.getElementById('sc-time').innerText = record.time + "s";
+document.getElementById('sc-dist').innerText = record.dist;
+
+// Stability calc based on trace length
+let movement = 0;
+for(let i=1; i<record.trace.length; i++) {
+movement += Math.hypot(record.trace[i].x - record.trace[i-1].x, record.trace[i].y - record.trace[i-1].y);
+}
+const stability = Math.max(0, 100 - (movement * 0.2)).toFixed(0);
+document.getElementById('sc-hold').innerText = stability + "%";
+document.getElementById('sc-real').innerText = Math.round(stability * 0.95) + "%";
+
+drawScattMonitor();
+}
+
+function drawScattMonitor() {
+const canvas = document.getElementById('trace-canvas');
+const ctx = canvas.getContext('2d');
+const w = canvas.width = canvas.offsetWidth;
+const h = canvas.height = canvas.offsetHeight;
+const cx = w/2; const cy = h/2;
+
+// Draw Rings
+ctx.strokeStyle = "#ddd";
+for(let i=1; i<6; i++) {
+ctx.beginPath();
+ctx.arc(cx, cy, i * 20, 0, Math.PI*2);
+ctx.stroke();
+}
+ctx.fillStyle = "#000";
+ctx.beginPath(); ctx.arc(cx, cy, 15, 0, Math.PI*2); ctx.fill();
+
+// Draw History Overlay
+state.shotHistory.forEach((sh, idx) => {
+const isLatest = idx === state.shotHistory.length - 1;
+ctx.beginPath();
+ctx.lineWidth = isLatest ? 2 : 1;
+ctx.strokeStyle = isLatest ? "#b45309" : "rgba(100,100,100,0.2)";
+
+sh.trace.forEach((p, i) => {
+// Zooming into the target area
+const tx = cx + (p.x * 2.5);
+const ty = cy + (p.y * 2.5);
+if (i === 0) ctx.moveTo(tx, ty);
+else ctx.lineTo(tx, ty);
+});
+ctx.stroke();
+
+// Draw Shot Point
+const lastPos = sh.trace[sh.trace.length - 1];
+ctx.fillStyle = isLatest ? "#b45309" : "#999";
+ctx.beginPath();
+ctx.arc(cx + (lastPos.x * 2.5), cy + (lastPos.y * 2.5), 3, 0, Math.PI*2);
+ctx.fill();
+});
+}
+
+function resetForNextShot() {
+state.shot++;
+state.startTime = Date.now();
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+resetShot();
+loop();
+}
+
+function move(dx, dy) {
+state.moveInt = setInterval(() => {
+state.sightX += dx;
+state.sightY += dy;
+}, 16);
+}
+function stop() { clearInterval(state.moveInt); }
+</script>
+</body>
+</html>
+

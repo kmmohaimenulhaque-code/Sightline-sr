@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Professional | Olympic Edition</title>
+<style>
+:root {
+--bg-dark: #0c0c0e;
+--panel-steel: #1a1a1e;
+--accent-gold: #d4af37;
+--swiss-yellow: #ffcc00;
+--scatt-blue: #2563eb;
+--text-main: #e4e4e7;
+--target-card: calc(1.70 * 37.8px);
+--target-black: calc(0.59 * 37.8px);
+--target-10ring: calc(0.12 * 37.8px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; user-select: none; }
+body { background: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; touch-action: none; }
+
+/* --- Realistic UI Screens --- */
+.screen {
+position: fixed; inset: 0; z-index: 100;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle at center, #1e1e22 0%, #0c0c0e 100%);
+transition: opacity 0.4s ease;
+}
+.hidden { display: none !important; }
+
+.glass-card {
+background: var(--panel-steel); padding: 2.5rem; border-radius: 4px;
+width: 95%; max-width: 500px; border: 1px solid #2d2d33;
+box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.05);
+text-align: center;
+}
+
+h1 { font-weight: 200; letter-spacing: 6px; text-transform: uppercase; color: var(--accent-gold); margin-bottom: 0.5rem; }
+.sub-label { font-size: 0.7rem; letter-spacing: 2px; color: #71717a; text-transform: uppercase; margin-bottom: 2rem; display: block; }
+
+/* --- SCATT Monitor (Professional Look) --- */
+.monitor-frame {
+background: #ffffff; color: #1e293b; border-radius: 2px;
+padding: 1.5rem; margin-bottom: 1rem; text-align: left;
+box-shadow: inset 0 0 40px rgba(0,0,0,0.05);
+}
+.monitor-header {
+display: flex; justify-content: space-between; align-items: flex-end;
+border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;
+}
+.shot-val-big { font-size: 3rem; font-weight: 900; line-height: 1; color: #0f172a; font-variant-numeric: tabular-nums; }
+
+#trace-canvas {
+background: #fff; width: 100%; height: 220px;
+border: 1px solid #cbd5e1; display: block;
+}
+
+.data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; }
+.data-cell { background: #f8fafc; padding: 10px; border-radius: 2px; border: 1px solid #edf2f7; }
+.data-label { font-size: 0.6rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+.data-value { font-size: 1.2rem; font-weight: 800; color: #334155; }
+
+/* --- Range Viewport --- */
+#viewport {
+position: relative; width: 100vw; height: 100vh;
+background: linear-gradient(to bottom, #475569, #1e293b);
+display: flex; align-items: center; justify-content: center;
+}
+#viewport::after { content: ''; position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/brushed-alum.png'); opacity: 0.1; pointer-events: none; }
+
+.hud-overlay {
+position: absolute; top: 0; width: 100%; padding: 20px 40px;
+display: flex; justify-content: space-between; align-items: center;
+background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+z-index: 60; border-top: 3px solid var(--swiss-yellow);
+}
+
+#target-master {
+position: absolute; width: var(--target-card); height: var(--target-card);
+background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+display: flex; align-items: center; justify-content: center;
+}
+.ring-black { position: absolute; border-radius: 50%; width: var(--target-black); height: var(--target-black); background: #111; }
+.ring-10 { position: absolute; border-radius: 50%; width: var(--target-10ring); height: var(--target-10ring); border: 0.2px solid rgba(255,255,255,0.4); }
+
+/* --- Iron Sights (Realistic Textures) --- */
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; pointer-events: none; }
+#sight-layer { position: absolute; transform: translate(-50%, -50%); }
+
+.front-blade {
+position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%);
+width: 14px; height: 48px; background: #080808;
+border-top: 1.5px solid #333; box-shadow: inset 0 2px 10px rgba(255,255,255,0.1);
+}
+.rear-notch {
+position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+width: 70px; height: 48px;
+border-left: 24px solid #050505; border-right: 24px solid #050505; border-bottom: 24px solid #050505;
+}
+
+/* --- Controllers --- */
+#controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; pointer-events: none; z-index: 70; }
+.joystick-base {
+pointer-events: auto; position: relative; width: 150px; height: 150px;
+background: radial-gradient(circle, #2d2d33, #1a1a1e);
+border-radius: 50%; border: 4px solid #000; box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+}
+.joy-btn {
+position: absolute; width: 48px; height: 48px; background: #222; border: 1px solid #333;
+border-radius: 50%; display: flex; align-items: center; justify-content: center;
+color: #666; font-size: 0.8rem; cursor: pointer; transition: 0.1s;
+}
+.joy-btn:active { background: #333; color: var(--swiss-yellow); transform: scale(0.95); }
+.up{top:8px;left:51px;} .down{bottom:8px;left:51px;} .left{left:8px;top:51px;} .right{right:8px;top:51px;}
+
+#fire-btn {
+pointer-events: auto; width: 110px; height: 110px; border-radius: 50%;
+background: radial-gradient(circle at 30% 30%, #ef4444, #991b1b);
+border: 6px solid #000; color: #fff; font-weight: 900; font-size: 1.1rem;
+box-shadow: 0 10px 25px rgba(0,0,0,0.6); cursor: pointer;
+}
+
+.premium-btn {
+background: var(--accent-gold); color: #000; border: none; padding: 14px;
+width: 100%; border-radius: 2px; font-weight: 800; text-transform: uppercase;
+letter-spacing: 2px; cursor: pointer; margin-top: 10px;
+}
+.trivia-panel { background: #1a1a1e; color: #a1a1aa; padding: 1rem; font-size: 0.8rem; border-left: 2px solid var(--accent-gold); text-align: left; margin: 15px 0; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup-screen" class="screen">
+<div class="glass-card">
+<h1>Precision</h1>
+<span class="sub-label">Olympic 10m Air Pistol Sim</span>
+<div style="text-align:left; margin-bottom:2rem">
+<label style="font-size:0.6rem; color:#71717a; font-weight:800; letter-spacing:1px">SHOULDER HEIGHT (METERS)</label>
+<input type="number" id="sh-in" value="1.48" step="0.01" style="width:100%; padding:15px; background:#0c0c0e; border:1px solid #333; color:#fff; font-size:1.2rem; outline:none;">
+</div>
+<button class="premium-btn" onclick="initSim()">Start Competition</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="hud-overlay">
+<div style="color:var(--swiss-yellow); font-family:monospace; font-size:1.2rem;">SHOT <span id="hud-shot">1</span>/24</div>
+<div id="hud-timer" style="font-weight:900; font-size:1.5rem;">60.00</div>
+<div style="text-align:right">SCORE<br><span id="hud-total" style="font-size:1.5rem">0.0</span></div>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord" style="position:absolute"></div>
+</div>
+
+<div id="sight-base">
+<div id="sight-layer">
+<div class="front-blade"><div id="aim-tip" style="position:absolute;top:0;left:50%"></div></div>
+<div class="rear-notch"></div>
+</div>
+</div>
+
+<div id="controls">
+<div class="joystick-base">
+<div class="joy-btn up" onmousedown="move(0,-1.5)" onmouseup="stop()" ontouchstart="move(0,-1.5)" ontouchend="stop()">UP</div>
+<div class="joy-btn down" onmousedown="move(0,1.5)" onmouseup="stop()" ontouchstart="move(0,1.5)" ontouchend="stop()">DOWN</div>
+<div class="joy-btn left" onmousedown="move(-1.5,0)" onmouseup="stop()" ontouchstart="move(-1.5,0)" ontouchend="stop()">LEFT</div>
+<div class="joy-btn right" onmousedown="move(1.5,0)" onmouseup="stop()" ontouchstart="move(1.5,0)" ontouchend="stop()">RIGHT</div>
+</div>
+<button id="fire-btn" onclick="fireShot()">RELEASE</button>
+</div>
+</div>
+
+<div id="scatt-screen" class="screen hidden">
+<div class="glass-card" style="max-width:550px; background: #e2e8f0;">
+<div class="monitor-frame">
+<div class="monitor-header">
+<div>
+<span style="font-size:0.6rem; font-weight:800; color:#64748b; text-transform:uppercase">Shot Analysis</span>
+<div id="sc-num" style="font-size:0.9rem; font-weight:800">#01</div>
+</div>
+<div class="shot-val-big" id="sc-score">10.9</div>
+</div>
+
+<canvas id="trace-canvas"></canvas>
+
+<div class="data-grid">
+<div class="data-cell">
+<span class="data-label">Stability (Hold Q)</span>
+<div class="data-value"><span id="sc-hold-q">0</span>%</div>
+</div>
+<div class="data-cell">
+<span class="data-label">Execution (Realiz.)</span>
+<div class="data-value"><span id="sc-real">0</span>%</div>
+</div>
+<div class="data-cell">
+<span class="data-label">Trigger Time</span>
+<div class="data-value"><span id="sc-time">0.00</span>s</div>
+</div>
+<div class="data-cell">
+<span class="data-label">Muzzle Samples</span>
+<div class="data-value" id="sc-points">0</div>
+</div>
+</div>
+</div>
+
+<div class="trivia-panel" id="trivia-content"></div>
+
+<button class="premium-btn" onclick="nextShot()">Next Sequence</button>
+</div>
+</div>
+</div>
+
+<script>
+const triviaData = [
+"The 10m air pistol target’s 10-ring is just 11.5mm across – smaller than a penny.",
+"From 10m, the 10-ring looks as narrow as a printed comma at arm’s length.",
+"Minimum trigger pull is 1,000 grams (1kg) – a hair trigger is illegal.",
+"Optical sights, red dots, and lasers are completely banned in ISSF matches.",
+"Pellets travel at ~150 m/s – about half the speed of sound.",
+"Finals are 24 shots with elimination after every 2 shots from shot 12.",
+"A single shot's trace can contain over 1,000 position data points.",
+"The world record in qualification is 594, held by Jin Jong-oh.",
+"Heart rates of finalists often reach 150 bpm during elimination shots.",
+"Grips are custom-moulded but cannot cover the trigger guard or palm rest."
+];
+
+const state = {
+sh: 1.48, shotNum: 1, total: 0, timer: 60, timerInt: null,
+userX: 0, userY: 0, moveInt: null,
+currentTrace: [], lastTraces: [],
+startTime: 0, isFiring: false,
+oscTime: 0, // Used for the realistic oscillation math
+audio: new (window.AudioContext || window.webkitAudioContext)()
+};
+
+function initSim() {
+state.sh = parseFloat(document.getElementById('sh-in').value);
+document.getElementById('setup-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+resetMatchShot();
+requestAnimationFrame(updateLoop);
+}
+
+function resetMatchShot() {
+state.timer = 60;
+state.currentTrace = [];
+state.startTime = Date.now();
+state.isFiring = false;
+state.userX = 0; state.userY = 0;
+document.getElementById('hud-shot').innerText = state.shotNum;
+document.getElementById('fire-btn').disabled = false;
+startTimer();
+}
+
+function startTimer() {
+clearInterval(state.timerInt);
+state.timerInt = setInterval(() => {
+state.timer -= 0.01;
+document.getElementById('hud-timer').innerText = state.timer.toFixed(2);
+if(state.timer <= 0) fireShot(true);
+}, 10);
+}
+
+// --- REALISTIC OSCILLATION ENGINE ---
+function updateLoop(timestamp) {
+if(state.isFiring) return;
+
+state.oscTime += 0.02;
+// Complex oscillation: Combine 3 sine waves at different frequencies
+// to prevent repetitive "circular" motion.
+const oscX = (Math.sin(state.oscTime * 0.8) * 8) + (Math.sin(state.oscTime * 2.1) * 3) + (Math.sin(state.oscTime * 0.3) * 5);
+const oscY = (Math.cos(state.oscTime * 0.7) * 7) + (Math.cos(state.oscTime * 1.8) * 4) + (Math.sin(state.oscTime * 0.4) * 6);
+
+// Final position = User joystick movement + Muzzle Oscillation
+const finalX = state.userX + oscX;
+const finalY = state.userY + oscY;
+
+const sight = document.getElementById('sight-layer');
+sight.style.transform = `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px))`;
+
+// Log for SCATT
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+state.currentTrace.push({
+x: tip.left - bull.left,
+y: tip.top - bull.top + (0.19 * 37.8) // Pellet drop compensation
+});
+
+requestAnimationFrame(updateLoop);
+}
+
+function move(dx, dy) {
+state.moveInt = setInterval(() => {
+state.userX += dx; state.userY += dy;
+}, 16);
+}
+function stop() { clearInterval(state.moveInt); }
+
+function fireShot(timeout = false) {
+state.isFiring = true;
+clearInterval(state.timerInt);
+beep(120, 'square', 0.08);
+
+let score = 0;
+if(!timeout) {
+const lp = state.currentTrace[state.currentTrace.length - 1];
+const dist = Math.hypot(lp.x, lp.y) / 37.8;
+score = Math.max(0, (11.0 - (dist / 0.08))).toFixed(1);
+}
+
+state.total += parseFloat(score);
+showScatt(score);
+}
+
+function showScatt(score) {
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('scatt-screen').classList.remove('hidden');
+
+document.getElementById('sc-num').innerText = "#" + state.shotNum.toString().padStart(2, '0');
+document.getElementById('sc-score').innerText = score;
+document.getElementById('sc-time').innerText = ((Date.now() - state.startTime)/1000).toFixed(2);
+document.getElementById('sc-points').innerText = state.currentTrace.length;
+
+// Realistic SCATT Math
+// Hold Quality = Variation in the last 1 second of movement
+const lastSec = state.currentTrace.slice(-60);
+let varX = 0;
+lastSec.forEach(p => varX += Math.hypot(p.x, p.y));
+const holdQ = Math.max(0, Math.min(100, 100 - (varX / lastSec.length) * 1.5));
+
+document.getElementById('sc-hold-q').innerText = Math.round(holdQ);
+document.getElementById('sc-real').innerText = Math.round(score * 9.1);
+document.getElementById('trivia-content').innerHTML = `<b>MATCH FACT:</b> ${triviaData[Math.floor(Math.random()*triviaData.length)]}`;
+
+renderTrace();
+}
+
+function renderTrace() {
+const canvas = document.getElementById('trace-canvas');
+const ctx = canvas.getContext('2d');
+const w = canvas.width = canvas.offsetWidth;
+const h = canvas.height = canvas.offsetHeight;
+ctx.clearRect(0,0,w,h);
+ctx.translate(w/2, h/2);
+
+// Grid
+ctx.strokeStyle = "#f1f5f9"; ctx.lineWidth = 1;
+for(let r=1; r<10; r++){ ctx.beginPath(); ctx.arc(0,0,r*15,0,Math.PI*2); ctx.stroke(); }
+
+// Trace (Blue for hold, Red for break)
+ctx.lineWidth = 1.5;
+ctx.beginPath(); ctx.strokeStyle = "#cbd5e1";
+state.currentTrace.forEach((p, i) => {
+if(i === state.currentTrace.length - 20) { ctx.stroke(); ctx.beginPath(); ctx.strokeStyle = "#2563eb"; }
+if(i === 0) ctx.moveTo(p.x*2, p.y*2); else ctx.lineTo(p.x*2, p.y*2);
+});
+ctx.stroke();
+
+// Final Shot
+const last = state.currentTrace[state.currentTrace.length-1];
+ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(last.x*2, last.y*2, 3, 0, Math.PI*2); ctx.fill();
+}
+
+function nextShot() {
+if(state.shotNum >= 24) { alert("COMPETITION COMPLETE. TOTAL: " + state.total.toFixed(1)); location.reload(); return; }
+state.shotNum++;
+document.getElementById('scatt-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.getElementById('hud-total').innerText = state.total.toFixed(1);
+resetMatchShot();
+requestAnimationFrame(updateLoop);
+}
+
+function beep(f, t, d) {
+const o = state.audio.createOscillator(); const g = state.audio.createGain();
+o.type = t; o.frequency.value = f;
+g.gain.setValueAtTime(0.1, state.audio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.01, state.audio.currentTime + d);
+o.connect(g); g.connect(state.audio.destination);
+o.start(); o.stop(state.audio.currentTime + d);
+}
+</script>
+</body>
+</html>
+

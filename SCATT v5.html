@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | Steyr LP Edition</title>
+<style>
+:root {
+--bg-dark: #0c0c0e;
+--panel-steel: #1a1a1e;
+--accent-gold: #d4af37;
+--swiss-yellow: #ffcc00;
+--tgt-card: calc(1.70 * 37.8px);
+--tgt-black: calc(0.59 * 37.8px);
+--tgt-10ring: calc(0.12 * 37.8px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+/* --- CHANGE 1: Allow Body Scrolling --- */
+body {
+background: var(--bg-dark);
+color: #fff;
+min-height: 100vh;
+overflow-y: auto; /* Enable vertical scroll */
+overflow-x: hidden;
+}
+
+/* Screens (Setup and Scatt Analysis) */
+.screen {
+position: fixed; inset: 0; z-index: 1000;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle at center, #1e1e22 0%, #0c0c0e 100%);
+}
+.hidden { display: none !important; }
+
+/* --- CHANGE 2: Fix the Viewport (The Shooting Range) --- */
+#viewport {
+position: fixed; /* Locks the range to the screen */
+top: 0; left: 0;
+width: 100vw; height: 100vh;
+background: linear-gradient(to bottom, #2d3748, #0f172a);
+display: flex; align-items: center; justify-content: center;
+z-index: 10; /* Sits behind the scrollable content if needed */
+}
+
+/* --- CHANGE 3: Scrollable Content Layer --- */
+.scrollable-info {
+position: relative;
+z-index: 20; /* Sits above the viewport range */
+margin-top: 100vh; /* Starts after the first "screen" */
+padding: 40px 20px;
+background: rgba(12, 12, 14, 0.95); /* Semi-transparent to see range */
+border-top: 2px solid var(--accent-gold);
+line-height: 1.6;
+}
+
+.info-card {
+max-width: 800px; margin: 0 auto; padding: 2rem;
+background: var(--panel-steel); border-radius: 8px;
+border: 1px solid #2d2d33; margin-bottom: 2rem;
+}
+
+/* HUD and Target Styles */
+.hud-overlay {
+position: absolute; top: 0; width: 100%; padding: 15px 30px;
+display: flex; justify-content: space-between; align-items: center;
+background: rgba(0,0,0,0.85); border-top: 3px solid var(--swiss-yellow); z-index: 60;
+}
+
+#target-master {
+position: absolute; width: var(--tgt-card); height: var(--tgt-card);
+background: #ffffff; border: 1px solid #ddd;
+display: flex; align-items: center; justify-content: center;
+box-shadow: 0 0 50px rgba(0,0,0,0.5);
+}
+.ring-black { position: absolute; border-radius: 50%; width: var(--tgt-black); height: var(--tgt-black); background: #111; }
+.ring-10 { position: absolute; border-radius: 50%; width: var(--tgt-10ring); height: var(--tgt-10ring); border: 0.2px solid rgba(255,255,255,0.5); }
+
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; pointer-events: none; }
+#sight-layer { position: absolute; transform: translate(-50%, -50%); }
+.front-blade { position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%); width: 14px; height: 48px; background: #000; border-top: 1.5px solid #333; }
+.rear-notch { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 70px; height: 48px; border-left: 24px solid #000; border-right: 24px solid #000; border-bottom: 24px solid #000; }
+
+#controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; pointer-events: none; z-index: 70; }
+.joy-base { pointer-events: auto; position: relative; width: 140px; height: 140px; background: #111; border-radius: 50%; border: 3px solid #000; touch-action: none;}
+.btn-move { position: absolute; width: 44px; height: 44px; background: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #555; font-size: 0.7rem; cursor: pointer; user-select: none; }
+#fire-btn { pointer-events: auto; width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ef4444, #991b1b); border: 4px solid #000; color: #fff; font-weight: 900; cursor: pointer; }
+
+/* Scatt Monitor specific */
+.glass-card { background: var(--panel-steel); padding: 2rem; border-radius: 4px; width: 95%; max-width: 450px; text-align: center; border: 1px solid #2d2d33;}
+.monitor-frame { background: #f8fafc; color: #1e293b; padding: 1.5rem; border-radius: 2px; text-align: left; }
+canvas { background: #fff; width: 100%; height: 220px; border: 1px solid #cbd5e1; margin: 10px 0; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-box { background: #fff; padding: 8px; border: 1px solid #e2e8f0; }
+.stat-box small { font-size: 0.6rem; color: #94a3b8; font-weight: 800; text-transform: uppercase; display: block; }
+.premium-btn { background: var(--accent-gold); color: #000; padding: 15px; width: 100%; border: none; font-weight: 800; text-transform: uppercase; cursor: pointer; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup-screen" class="screen">
+<div class="glass-card">
+<h1 style="color:var(--accent-gold); letter-spacing:4px; margin-bottom:1rem;">STEYR LP-10</h1>
+<div style="text-align:left; margin-bottom:1.5rem;">
+<label style="font-size:0.6rem; color:#71717a; font-weight:800; text-transform:uppercase;">Shoulder Height (meters)</label>
+<input type="number" id="sh-in" value="1.48" step="0.01" style="width:100%; padding:12px; background:#0c0c0e; border:1px solid #333; color:#fff; margin-top:5px;">
+</div>
+<button onclick="setMode('qualification')" style="background:#27272a; border:1px solid #3f3f46; color:#fff; padding:1.2rem; width:100%; margin-bottom:0.8rem; text-align:left; display:flex; justify-content:space-between; cursor:pointer;">
+<span>Qualification</span><b>60 Shots</b>
+</button>
+<button onclick="setMode('final')" style="background:#27272a; border:1px solid #3f3f46; color:#fff; padding:1.2rem; width:100%; margin-bottom:0.8rem; text-align:left; display:flex; justify-content:space-between; cursor:pointer;">
+<span>Olympic Final</span><b>24 Shots</b>
+</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="hud-overlay">
+<div style="color:var(--swiss-yellow)">SHOT <span id="hud-shot">1</span>/<span id="hud-max">24</span></div>
+<div id="hud-timer" style="font-family:monospace; font-size:1.4rem">60.00</div>
+<div>SCORE: <span id="hud-total">0.0</span></div>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord" style="position:absolute"></div>
+</div>
+
+<div id="sight-base">
+<div id="sight-layer">
+<div class="front-blade"><div id="aim-tip" style="position:absolute;top:0;left:50%"></div></div>
+<div class="rear-notch"></div>
+</div>
+</div>
+
+<div id="controls">
+<div class="joy-base">
+<div class="btn-move" style="top:5px;left:48px;" onmousedown="move(0,-1.2)" onmouseup="stop()" ontouchstart="move(0,-1.2)" ontouchend="stop()">UP</div>
+<div class="btn-move" style="bottom:5px;left:48px;" onmousedown="move(0,1.2)" onmouseup="stop()" ontouchstart="move(0,1.2)" ontouchend="stop()">DOWN</div>
+<div class="btn-move" style="left:5px;top:48px;" onmousedown="move(-1.2,0)" onmouseup="stop()" ontouchstart="move(-1.2,0)" ontouchend="stop()">LEFT</div>
+<div class="btn-move" style="right:5px;top:48px;" onmousedown="move(1.2,0)" onmouseup="stop()" ontouchstart="move(1.2,0)" ontouchend="stop()">RIGHT</div>
+</div>
+<button id="fire-btn" onclick="fire()">RELEASE</button>
+</div>
+</div>
+
+<div id="info-layer" class="scrollable-info hidden">
+<div class="info-card">
+<h2 style="color:var(--accent-gold); margin-bottom:1rem;">Range Instructions</h2>
+<p>Welcome to the digital 10m Air Pistol range. The target screen above is fixed to your viewport for precision training. Below you will find technical data regarding your Steyr LP-10 setup.</p>
+</div>
+
+<div class="info-card">
+<h3 style="margin-bottom:10px;">The Physics of the Shot</h3>
+<p>At a distance of 10 meters, a 4.5mm lead pellet experiences significant drop due to gravity. The SCATT Pro algorithm calculates this based on your shoulder height input and the standard 157m/s muzzle velocity of a match-grade Steyr regulator.</p>
+</div>
+
+<div class="info-card">
+<h3 style="margin-bottom:10px;">Training Mode</h3>
+<p>Use the joystick to simulate hold stability. Press "RELEASE" to execute the shot. Your hold trace will be analyzed in the SCATT monitor after every release.</p>
+</div>
+
+<div style="height: 300px;"></div> </div>
+
+<div id="scatt-screen" class="screen hidden">
+<div class="glass-card" style="background:#e2e8f0; max-width:500px;">
+<div class="monitor-frame">
+<div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #cbd5e1; padding-bottom:5px;">
+<span style="font-weight:800; color:#64748b; font-size:0.7rem;">ANALYSIS</span>
+<span id="sc-score" style="font-size:2.5rem; font-weight:900; color:#0f172a">10.9</span>
+</div>
+<canvas id="trace-canvas"></canvas>
+<div class="stat-grid">
+<div class="stat-box"><small>Stability</small><b><span id="sc-hold">0</span>%</b></div>
+<div class="stat-box"><small>Realization</small><b><span id="sc-real">0</span>%</b></div>
+<div class="stat-box"><small>Vert Deflection</small><b><span id="sc-drop">1.98</span>cm</b></div>
+<div class="stat-box"><small>Hold Time</small><b><span id="sc-time">0.0</span>s</b></div>
+</div>
+</div>
+<div id="trivia-box" style="padding:15px; font-size:0.8rem; color:#475569; text-align:left; border-left:3px solid var(--accent-gold); margin:15px 0;"></div>
+<button class="premium-btn" onclick="nextShot()">Next Sequence</button>
+</div>
+</div>
+</div>
+
+<script>
+const trivia = [
+"Steyr pellets travel at ~157m/s, taking 0.063s to reach the target.",
+"At 10m, gravity pulls the pellet down nearly 2cm during its flight.",
+"The 10-ring is 11.5mm wide — roughly the size of a fingernail.",
+"Match pistols have a minimum trigger weight of 1,000g.",
+"The ISSF target center is exactly 1.40 meters above the floor."
+];
+
+const state = {
+sh: 1.48, mode: 'final', maxShots: 24, shotNum: 1, total: 0,
+userX: 0, userY: 0, oscTime: 0,
+timer: 60, timerInt: null,
+currentTrace: [], isFiring: false,
+pelletDropPx: 0,
+audio: new (window.AudioContext || window.webkitAudioContext)()
+};
+
+function setMode(m) {
+state.sh = parseFloat(document.getElementById('sh-in').value);
+state.mode = m;
+state.maxShots = (m === 'qualification') ? 60 : 24;
+
+const velocity = 157.5;
+const timeOfFlight = 10 / velocity;
+const dropMeters = 0.5 * 9.8 * Math.pow(timeOfFlight, 2);
+const heightDiff = 1.40 - state.sh;
+state.pelletDropPx = ((dropMeters + heightDiff) * 100 * 37.8);
+
+document.getElementById('hud-max').innerText = state.maxShots;
+document.getElementById('setup-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.getElementById('info-layer').classList.remove('hidden'); // Show scrollable content
+
+if (state.audio.state === 'suspended') state.audio.resume();
+startMatch();
+}
+
+function startMatch() { resetShot(); requestAnimationFrame(loop); }
+
+function resetShot() {
+state.timer = 60;
+state.currentTrace = [];
+state.userX = 0; state.userY = 0;
+state.isFiring = false;
+document.getElementById('hud-shot').innerText = state.shotNum;
+document.getElementById('hud-total').innerText = state.total.toFixed(1);
+startTimer();
+}
+
+function startTimer() {
+clearInterval(state.timerInt);
+state.timerInt = setInterval(() => {
+state.timer -= 0.01;
+document.getElementById('hud-timer').innerText = state.timer.toFixed(2);
+if(state.timer <= 0) fire(true);
+}, 10);
+}
+
+function loop() {
+if(state.isFiring) return;
+state.oscTime += 0.012;
+const ox = (Math.sin(state.oscTime * 0.8) * 3) + (Math.sin(state.oscTime * 2.2) * 1);
+const oy = (Math.cos(state.oscTime * 0.7) * 2.5) + (Math.sin(state.oscTime * 1.6) * 1.5);
+const tx = state.userX + ox;
+const ty = state.userY + oy;
+document.getElementById('sight-layer').style.transform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px))`;
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+state.currentTrace.push({ x: tip.left - bull.left, y: (tip.top - bull.top) + state.pelletDropPx });
+requestAnimationFrame(loop);
+}
+
+let mInt;
+function move(dx, dy) { mInt = setInterval(() => { state.userX += dx; state.userY += dy; }, 16); }
+function stop() { clearInterval(mInt); }
+
+function fire(timeout = false) {
+state.isFiring = true;
+clearInterval(state.timerInt);
+beep(140, 'square', 0.08);
+if(!state.currentTrace.length) state.currentTrace.push({ x: 0, y: state.pelletDropPx });
+let score = 0;
+if(!timeout) {
+const lp = state.currentTrace[state.currentTrace.length - 1];
+const dist = Math.hypot(lp.x, lp.y) / 37.8;
+score = Math.max(0, (10.9 - (dist / 0.8))).toFixed(1);
+}
+state.total += parseFloat(score);
+showScatt(score);
+}
+
+function showScatt(score) {
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('info-layer').classList.add('hidden');
+document.getElementById('scatt-screen').classList.remove('hidden');
+document.getElementById('sc-score').innerText = score;
+document.getElementById('sc-time').innerText = (60 - state.timer).toFixed(1);
+document.getElementById('sc-drop').innerText = (state.pelletDropPx / 37.8).toFixed(2);
+const last60 = state.currentTrace.slice(-60);
+if(last60.length > 0) {
+let stability = 0;
+last60.forEach(p => stability += Math.hypot(p.x, p.y));
+document.getElementById('sc-hold').innerText = Math.round(Math.max(0, 100 - (stability/last60.length)*3));
+}
+document.getElementById('sc-real').innerText = Math.round(score * 9.1);
+document.getElementById('trivia-box').innerText = "DATA: " + trivia[Math.floor(Math.random()*trivia.length)];
+drawTrace();
+}
+
+function drawTrace() {
+const c = document.getElementById('trace-canvas');
+const ctx = c.getContext('2d');
+const w = c.width = c.offsetWidth;
+const h = c.height = c.offsetHeight;
+ctx.translate(w/2, h/2);
+ctx.strokeStyle = "#cbd5e1";
+for(let r=1; r<9; r++){ ctx.beginPath(); ctx.arc(0,0, r*15, 0, Math.PI*2); ctx.stroke(); }
+ctx.lineWidth = 1.5; ctx.strokeStyle = "#2563eb"; ctx.beginPath();
+state.currentTrace.forEach((p, i) => { if(i === 0) ctx.moveTo(p.x*3, p.y*3); else ctx.lineTo(p.x*3, p.y*3); });
+ctx.stroke();
+const lp = state.currentTrace[state.currentTrace.length - 1];
+ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(lp.x*3, lp.y*3, 4, 0, Math.PI*2); ctx.fill();
+}
+
+function nextShot() {
+if(state.shotNum >= state.maxShots) { alert("Finished: " + state.total.toFixed(1)); location.reload(); return; }
+state.shotNum++;
+document.getElementById('scatt-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.getElementById('info-layer').classList.remove('hidden');
+resetShot();
+requestAnimationFrame(loop);
+}
+
+function beep(f, t, d) {
+if (state.audio.state === 'suspended') return;
+const o = state.audio.createOscillator(); const g = state.audio.createGain();
+o.type = t; o.frequency.value = f;
+g.gain.setValueAtTime(0.1, state.audio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.01, state.audio.currentTime + d);
+o.connect(g); g.connect(state.audio.destination);
+o.start(); o.stop(state.audio.currentTime + d);
+}
+</script>
+</body>
+</html>
+

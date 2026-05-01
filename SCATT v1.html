@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Elite - 24 Shot Finals</title>
+<style>
+:root {
+--primary: #06b6d4;
+--accent: #10b981;
+--danger: #ef4444;
+--bg: #09090b;
+--panel: #18181b;
+--target-card: calc(1.70 * 37.8px);
+--target-black: calc(0.59 * 37.8px);
+--target-10ring: calc(0.12 * 37.8px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; user-select: none; }
+body { background: var(--bg); color: #f8fafc; height: 100vh; overflow: hidden; touch-action: none; }
+
+/* --- Screens --- */
+.screen {
+position: fixed; inset: 0; z-index: 100;
+display: flex; align-items: center; justify-content: center;
+background: #000; transition: opacity 0.3s;
+}
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel); padding: 2rem; border-radius: 1rem;
+width: 95%; max-width: 500px; border: 1px solid #27272a;
+text-align: center;
+}
+
+/* --- SCATT Monitor Style --- */
+.scatt-monitor {
+background: #f1f5f9; color: #0f172a; border-radius: 0.5rem;
+padding: 1rem; margin-bottom: 1rem; text-align: left;
+box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);
+}
+.scatt-header { display: flex; justify-content: space-between; font-weight: 800; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 10px; }
+
+#trace-canvas {
+background: #fff; width: 100%; height: 200px; border: 1px solid #cbd5e1;
+display: block; cursor: crosshair;
+}
+
+.scatt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.stat-item { background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; }
+.stat-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; display: block; }
+.stat-val { font-size: 1.1rem; font-weight: 800; color: #1e293b; }
+
+.progress-bar { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--primary); transition: width 0.5s; }
+
+/* --- Trivia Box --- */
+.trivia-box {
+background: #1e293b; color: #bae6fd; padding: 1rem; border-radius: 0.5rem;
+font-size: 0.85rem; line-height: 1.4; border-left: 4px solid var(--primary);
+margin: 1rem 0; text-align: left;
+}
+
+/* --- Game Viewport --- */
+#viewport {
+position: relative; width: 100vw; height: 100vh;
+background: radial-gradient(circle, #94a3b8 0%, #475569 100%);
+display: flex; align-items: center; justify-content: center;
+}
+
+.hud-top {
+position: absolute; top: 20px; width: 90%; display: flex; justify-content: space-between;
+background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 40px; color: #fff; font-weight: bold;
+}
+
+#target-master {
+position: absolute; width: var(--target-card); height: var(--target-card);
+background: #fafafa; display: flex; align-items: center; justify-content: center;
+box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.ring-black { position: absolute; border-radius: 50%; width: var(--target-black); height: var(--target-black); background: #111; }
+.ring-10 { position: absolute; border-radius: 50%; width: var(--target-10ring); height: var(--target-10ring); border: 0.3px solid rgba(255,255,255,0.6); }
+
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; pointer-events: none;}
+#sight-wobble { position: absolute; transform: translate(-50%, -50%); animation: shake 4s infinite ease-in-out; }
+@keyframes shake { 0%,100%{transform: translate(-52%,-48%);} 50%{transform: translate(-48%,-52%);} }
+
+.front-i { position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%); width: 14px; height: 45px; background: #000; border-top: 2px solid #444; }
+.rear-u { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 66px; height: 45px; border-left: 22px solid #000; border-right: 22px solid #000; border-bottom: 22px solid #000; }
+
+/* --- Controllers --- */
+#controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; pointer-events: none; }
+.dpad { pointer-events: auto; position: relative; width: 140px; height: 140px; background: rgba(0,0,0,0.5); border-radius: 50%; }
+.d-btn { position: absolute; width: 45px; height: 45px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; }
+.up{top:5px;left:47px;} .down{bottom:5px;left:47px;} .left{left:5px;top:47px;} .right{right:5px;top:47px;}
+
+#fire-btn { pointer-events: auto; width: 100px; height: 100px; background: #ef4444; border: 5px solid #7f1d1d; border-radius: 50%; color: #fff; font-weight: 900; }
+
+.btn-ui { background: var(--primary); color: #fff; border: none; padding: 12px 24px; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 5px;}
+.btn-save { background: #64748b; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup-screen" class="screen">
+<div class="card">
+<h1 style="color:var(--primary)">SCATT ELITE</h1>
+<p style="font-size:0.8rem; margin:1rem 0; color:#a1a1aa">ISSF 24-SHOT FINALS SIMULATOR</p>
+<div style="text-align:left; margin-bottom:1.5rem">
+<label style="font-size:0.7rem; color:#71717a">SHOULDER HEIGHT (M)</label>
+<input type="number" id="sh-in" value="1.48" step="0.01" style="width:100%; padding:10px; background:#27272a; border:1px solid #3f3f46; color:#fff; border-radius:5px;">
+</div>
+<button class="btn-ui" onclick="initSim()">START FINALS</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="hud-top">
+<span>SHOT <span id="hud-shot">1</span>/24</span>
+<span id="hud-timer" style="color:var(--danger)">60s</span>
+<span>TOTAL: <span id="hud-total">0.0</span></span>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord" style="position:absolute"></div>
+</div>
+
+<div id="sight-base">
+<div id="sight-wobble">
+<div class="front-i"><div id="aim-tip" style="position:absolute;top:0;left:50%"></div></div>
+<div class="rear-u"></div>
+</div>
+</div>
+
+<div id="controls">
+<div class="dpad">
+<div class="d-btn up" onmousedown="move(0,-2)" onmouseup="stop()" ontouchstart="move(0,-2)" ontouchend="stop()">▲</div>
+<div class="d-btn down" onmousedown="move(0,2)" onmouseup="stop()" ontouchstart="move(0,2)" ontouchend="stop()">▼</div>
+<div class="d-btn left" onmousedown="move(-2,0)" onmouseup="stop()" ontouchstart="move(-2,0)" ontouchend="stop()">◄</div>
+<div class="d-btn right" onmousedown="move(2,0)" onmouseup="stop()" ontouchstart="move(2,0)" ontouchend="stop()">►</div>
+</div>
+<button id="fire-btn" onclick="fireShot()">FIRE</button>
+</div>
+</div>
+
+<div id="scatt-screen" class="screen hidden">
+<div class="card" style="max-width:550px; background: #fff;">
+<div class="scatt-monitor">
+<div class="scatt-header">
+<span>SHOT <span id="sc-num">1</span> ANALYSIS</span>
+<span id="sc-score" style="color:var(--danger); font-size:1.5rem">10.9</span>
+</div>
+
+<canvas id="trace-canvas"></canvas>
+
+<div class="scatt-stats">
+<div class="stat-item">
+<span class="stat-label">Hold Quality</span>
+<div class="stat-val"><span id="sc-hold-q">95</span>%</div>
+<div class="progress-bar"><div id="pb-hold" class="progress-fill"></div></div>
+</div>
+<div class="stat-item">
+<span class="stat-label">Realization</span>
+<div class="stat-val"><span id="sc-real">88</span>%</div>
+<div class="progress-bar"><div id="pb-real" class="progress-fill" style="background:var(--accent)"></div></div>
+</div>
+<div class="stat-item">
+<span class="stat-label">Hold Time</span>
+<div class="stat-val"><span id="sc-time">4.2</span>s</div>
+</div>
+<div class="stat-item">
+<span class="stat-label">Trace Points</span>
+<div class="stat-val" id="sc-points">1042</div>
+</div>
+</div>
+</div>
+
+<div class="trivia-box" id="trivia-content">
+<b>Did you know?</b> The 10m air pistol target’s 10-ring is just 11.5mm across – smaller than a penny.
+</div>
+
+<button class="btn-ui btn-save">SAVE TRACE</button>
+<button class="btn-ui" id="next-btn" onclick="nextShot()">NEXT SHOT</button>
+</div>
+</div>
+</div>
+
+<script>
+const trivia = [
+"The 10-ring is just 11.5mm across – smaller than a penny.",
+"The inner ten (X-ring) is only 5.0mm – about the tip of a crayon.",
+"Minimum trigger pull is 1,000 grams – a hair trigger is illegal.",
+"Olympic air pistol was added in 1988 (Seoul).",
+"Finals are 24 shots with elimination after every 2 shots.",
+"Heart rates of finalists hover around 130–150 bpm during shots.",
+"A cylinder of compressed air lasts about 100–120 shots.",
+"The 10-ring looks as narrow as a printed comma at arm’s length.",
+"Pistols must pass through a 420x200x50mm 'box test'.",
+"Optical sights, red dots, and lasers are completely banned.",
+"The firing line has a 50cm wide shooting lane.",
+"Match pellets travel at ~150 m/s – slower than a paintball.",
+"A single shot's trace can contain over 1,000 data points.",
+"Dry-firing with SCATT is legal and used for daily training.",
+"Qualification for men is 60 shots in 75 minutes.",
+"The world record in qualification is 594 by Jin Jong-oh.",
+"Top shooters drop heart rate to 90 bpm within 20 seconds.",
+"Cylinder pressure is 200 bar – roughly 2,900 psi.",
+"Shooting jackets are not allowed in pistol events.",
+"During finals, the range must remain completely silent."
+];
+
+const state = {
+sh: 1.48,
+shotNum: 1,
+totalScore: 0,
+timer: 60,
+timerInt: null,
+sightX: 0,
+sightY: 0,
+moveInt: null,
+currentTrace: [],
+lastTraces: [], // Memory of last 3
+startTime: 0,
+isFiring: false,
+audio: new (window.AudioContext || window.webkitAudioContext)()
+};
+
+function initSim() {
+state.sh = parseFloat(document.getElementById('sh-in').value);
+document.getElementById('setup-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+resetShot();
+}
+
+function resetShot() {
+state.timer = 60;
+state.currentTrace = [];
+state.startTime = Date.now();
+state.isFiring = false;
+state.sightX = 0;
+state.sightY = 0;
+document.getElementById('sight-base').style.transform = `translate(0,0)`;
+document.getElementById('hud-shot').innerText = state.shotNum;
+document.getElementById('fire-btn').disabled = false;
+
+startTimer();
+startTracking();
+}
+
+function startTimer() {
+clearInterval(state.timerInt);
+state.timerInt = setInterval(() => {
+state.timer--;
+document.getElementById('hud-timer').innerText = state.timer + "s";
+if(state.timer <= 0) fireShot(true);
+}, 1000);
+}
+
+function startTracking() {
+const track = () => {
+if(state.isFiring) return;
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+
+state.currentTrace.push({
+x: tip.left - bull.left,
+y: tip.top - bull.top + (0.19 * 37.8) // Including pellet drop
+});
+requestAnimationFrame(track);
+};
+track();
+}
+
+function move(dx, dy) {
+state.moveInt = setInterval(() => {
+state.sightX += dx; state.sightY += dy;
+document.getElementById('sight-base').style.transform = `translate(${state.sightX}px, ${state.sightY}px)`;
+}, 16);
+}
+function stop() { clearInterval(state.moveInt); }
+
+function fireShot(timeout = false) {
+state.isFiring = true;
+clearInterval(state.timerInt);
+beep(150, 'square', 0.1);
+
+let score = 0;
+if(!timeout) {
+const lastPoint = state.currentTrace[state.currentTrace.length - 1];
+const dist = Math.hypot(lastPoint.x, lastPoint.y) / 37.8;
+score = Math.max(0, (11.0 - (dist / 0.08))).toFixed(1);
+}
+
+state.totalScore += parseFloat(score);
+showScatt(score);
+}
+
+function showScatt(score) {
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('scatt-screen').classList.remove('hidden');
+
+document.getElementById('sc-num').innerText = state.shotNum;
+document.getElementById('sc-score').innerText = score;
+document.getElementById('sc-time').innerText = ((Date.now() - state.startTime)/1000).toFixed(1);
+document.getElementById('sc-points').innerText = state.currentTrace.length;
+
+// Calculate SCATT Metrics
+const holdQ = Math.max(60, 100 - (state.currentTrace.length / 50)); // Simulated logic
+const real = score > 0 ? Math.min(100, score * 9.2) : 0;
+
+document.getElementById('sc-hold-q').innerText = Math.round(holdQ);
+document.getElementById('pb-hold').style.width = holdQ + "%";
+document.getElementById('sc-real').innerText = Math.round(real);
+document.getElementById('pb-real').style.width = real + "%";
+
+document.getElementById('trivia-content').innerHTML = `<b>Fact:</b> ${trivia[Math.floor(Math.random()*trivia.length)]}`;
+
+drawTrace();
+
+// Save last 3 traces
+state.lastTraces.push([...state.currentTrace]);
+if(state.lastTraces.length > 3) state.lastTraces.shift();
+}
+
+function drawTrace() {
+const canvas = document.getElementById('trace-canvas');
+const ctx = canvas.getContext('2d');
+const w = canvas.width = canvas.offsetWidth;
+const h = canvas.height = canvas.offsetHeight;
+
+ctx.clearRect(0,0,w,h);
+ctx.translate(w/2, h/2);
+
+// Draw Rings
+ctx.strokeStyle = "#cbd5e1";
+for(let r=1; r<6; r++){
+ctx.beginPath(); ctx.arc(0,0, r*20, 0, Math.PI*2); ctx.stroke();
+}
+
+// Draw Path
+ctx.beginPath();
+ctx.strokeStyle = "#0891b2";
+ctx.lineWidth = 2;
+state.currentTrace.forEach((p, i) => {
+const tx = p.x * 2; // Scale for visibility
+const ty = p.y * 2;
+if(i === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+});
+ctx.stroke();
+
+// Impact Point
+const last = state.currentTrace[state.currentTrace.length - 1];
+ctx.fillStyle = "red";
+ctx.beginPath();
+ctx.arc(last.x*2, last.y*2, 4, 0, Math.PI*2);
+ctx.fill();
+}
+
+function nextShot() {
+if(state.shotNum >= 24) {
+alert("Match Complete! Total: " + state.totalScore.toFixed(1));
+location.reload();
+return;
+}
+state.shotNum++;
+document.getElementById('scatt-screen').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.getElementById('hud-total').innerText = state.totalScore.toFixed(1);
+resetShot();
+}
+
+function beep(f, t, d) {
+const o = state.audio.createOscillator();
+const g = state.audio.createGain();
+o.type = t; o.frequency.value = f;
+g.gain.setValueAtTime(0.1, state.audio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.01, state.audio.currentTime + d);
+o.connect(g); g.connect(state.audio.destination);
+o.start(); o.stop(state.audio.currentTime + d);
+}
+</script>
+</body>
+</html>
+

@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | Steyr LP Edition</title>
+<style>
+:root {
+/* SCATT Pro Palette */
+--bg-main: #f4f1eb;
+--bg-grad: radial-gradient(circle at center, #fdfbf7 0%, #e8e4d9 100%);
+--panel-bg: rgba(255, 255, 255, 0.9);
+--text-dark: #2c3e50;
+--text-muted: #7f8c8d;
+--accent-sage: #7a9483;
+--accent-terra: #d4a373;
+--trace-color: #5c7cfa;
+--danger: #ef4444;
+--primary: #0ea5e9;
+--accent-green: #10b981;
+--dark-bg: #09090b;
+--dark-panel: rgba(24, 24, 27, 0.9);
+
+/* Physical Size Constants */
+--phys-card: 1.70cm;
+--phys-black: 0.595cm;
+--phys-10ring: 0.12cm;
+--sway-amp: 4px;
+}
+
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+font-family: 'Inter', system-ui, sans-serif;
+user-select: none;
+}
+
+body {
+background: var(--bg-main);
+color: var(--text-dark);
+min-height: 100vh;
+overflow-y: auto;
+overflow-x: hidden;
+touch-action: manipulation;
+}
+
+#app {
+min-height: 100vh;
+position: relative;
+}
+
+/* SCREEN SYSTEM */
+.screen {
+position: relative;
+min-height: 100vh;
+width: 100%;
+z-index: 100;
+display: flex;
+align-items: center;
+justify-content: center;
+background: var(--bg-main);
+transition: opacity 0.3s;
+}
+.hidden { display: none !important; }
+
+/* CARDS */
+.card {
+background: var(--panel-bg);
+padding: 2.5rem;
+border-radius: 1.5rem;
+border: 1px solid #e0dbce;
+width: 90%;
+max-width: 450px;
+box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
+text-align: center;
+backdrop-filter: blur(12px);
+}
+
+h1 {
+font-weight: 900;
+text-transform: uppercase;
+letter-spacing: 2px;
+margin-bottom: 1rem;
+color: var(--accent-sage);
+}
+.highlight { color: var(--accent-terra); }
+
+.input-group { text-align: left; margin-bottom: 1rem; }
+label {
+display: block;
+font-size: 0.65rem;
+font-weight: 700;
+color: var(--text-muted);
+margin-bottom: 0.4rem;
+text-transform: uppercase;
+}
+input {
+width: 100%;
+background: #fff;
+border: 1px solid #e0dbce;
+color: var(--text-dark);
+padding: 0.8rem;
+border-radius: 0.5rem;
+font-weight: bold;
+}
+
+.btn {
+background: var(--accent-sage);
+color: white;
+border: none;
+padding: 1rem;
+border-radius: 0.5rem;
+font-weight: 800;
+cursor: pointer;
+width: 100%;
+text-transform: uppercase;
+letter-spacing: 1px;
+margin-top: 10px;
+transition: all 0.2s;
+}
+.btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-green { background: var(--accent-green); }
+
+/* VIEWPORT */
+#viewport {
+position: fixed;
+inset: 0;
+background: var(--bg-grad);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 1;
+}
+
+#target-master {
+position: absolute;
+width: var(--phys-card);
+height: var(--phys-card);
+background: #fff;
+box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+display: flex;
+align-items: center;
+justify-content: center;
+}
+.ring-black {
+position: absolute;
+border-radius: 50%;
+width: var(--phys-black);
+height: var(--phys-black);
+background: #111;
+}
+.ring-10 {
+position: absolute;
+border-radius: 50%;
+width: var(--phys-10ring);
+height: var(--phys-10ring);
+border: 0.5px solid rgba(255,255,255,0.7);
+}
+#bullseye-coord { position: absolute; width: 1px; height: 1px; }
+
+/* LIVE TRACE */
+#live-trace-canvas {
+position: fixed;
+top: 0;
+left: 0;
+width: 100vw;
+height: 100vh;
+pointer-events: none;
+opacity: 0.7;
+z-index: 5;
+}
+
+/* SIGHTS */
+#sight-base {
+position: absolute;
+top: 50%;
+left: 50%;
+z-index: 10;
+pointer-events: none;
+}
+#sight-wobble {
+position: absolute;
+top: 0;
+left: 0;
+width: 100px;
+height: 100px;
+transform: translate(-50%, -50%);
+}
+.front-i {
+position: absolute;
+bottom: 50%;
+left: 50%;
+transform: translateX(-50%);
+width: 14px;
+height: 45px;
+background: #111;
+border-top: 2px solid #52525b;
+}
+.rear-u {
+position: absolute;
+bottom: 10px;
+left: 50%;
+transform: translateX(-50%);
+width: 66px;
+height: 45px;
+border-left: 22px solid #000;
+border-right: 22px solid #000;
+border-bottom: 22px solid #000;
+}
+#aim-tip { position: absolute; top: 0; left: 50%; }
+
+/* HUD */
+.match-stats {
+position: fixed;
+top: 20px;
+left: 50%;
+transform: translateX(-50%);
+background: var(--panel-bg);
+padding: 0.6rem 1.5rem;
+border-radius: 0.5rem;
+color: var(--text-dark);
+font-family: monospace;
+border: 1px solid #e0dbce;
+display: flex;
+gap: 20px;
+align-items: center;
+z-index: 60;
+backdrop-filter: blur(5px);
+font-weight: 600;
+}
+.timer-box {
+color: var(--danger);
+font-weight: bold;
+min-width: 60px;
+text-align: center;
+}
+
+/* CONTROLS */
+#controls {
+position: fixed;
+bottom: 30px;
+width: 100%;
+display: flex;
+justify-content: space-between;
+padding: 0 30px;
+pointer-events: none;
+z-index: 70;
+}
+.d-pad {
+pointer-events: auto;
+position: relative;
+width: 140px;
+height: 140px;
+background: rgba(255,255,255,0.9);
+border-radius: 50%;
+border: 2px solid #e0dbce;
+}
+.d-btn {
+position: absolute;
+width: 44px;
+height: 44px;
+background: #fff;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+color: var(--text-muted);
+cursor: pointer;
+border: 1px solid #f0ece1;
+font-weight: bold;
+}
+.btn-up { top: 4px; left: 48px; }
+.btn-down { bottom: 4px; left: 48px; }
+.btn-left { top: 48px; left: 4px; }
+.btn-right { top: 48px; right: 4px; }
+
+#fire-btn {
+pointer-events: auto;
+width: 100px;
+height: 100px;
+border-radius: 50%;
+background: var(--accent-terra);
+border: 4px solid #fff;
+color: #fff;
+font-weight: 900;
+cursor: pointer;
+box-shadow: 0 5px 15px rgba(212, 163, 115, 0.4);
+}
+#fire-btn:disabled {
+background: #b8956a;
+border-color: #967a55;
+opacity: 0.5;
+cursor: not-allowed;
+}
+
+/* ANALYSIS PAGE */
+.target-3d-wrapper {
+perspective: 1000px;
+width: 220px;
+height: 220px;
+margin: 0 auto 1.5rem;
+}
+.target-3d {
+width: 100%;
+height: 100%;
+position: relative;
+border-radius: 50%;
+background: #fff;
+transform: rotateX(15deg) rotateY(-10deg);
+box-shadow: -10px 10px 20px rgba(0,0,0,0.2);
+}
+.ring-3d {
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+border-radius: 50%;
+border: 1px solid #e0dbce;
+}
+.ring-3d.black { background: #18181b; }
+.hole-3d {
+position: absolute;
+width: 12px;
+height: 12px;
+background: #000;
+border-radius: 50%;
+transform: translate(-50%, -50%);
+z-index: 100;
+box-shadow: 0 0 4px #fff;
+}
+.hole-tiny {
+position: absolute;
+width: 3px;
+height: 3px;
+background: #000;
+border-radius: 50%;
+transform: translate(-50%, -50%);
+z-index: 20;
+}
+.score-val {
+font-size: 4rem;
+font-weight: 900;
+line-height: 1;
+margin-bottom: 1rem;
+color: var(--accent-sage);
+}
+
+/* TRACE ANALYSIS */
+.monitor-frame {
+background: #fff;
+color: var(--text-dark);
+padding: 1rem;
+border-radius: 8px;
+border: 1px solid #e0dbce;
+width: 100%;
+margin-bottom: 1rem;
+}
+.stat-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 6px;
+margin-top: 8px;
+}
+.stat-box {
+background: #fdfbf7;
+padding: 6px;
+border: 1px solid #e0dbce;
+border-radius: 4px;
+}
+.stat-box small {
+font-size: 0.45rem;
+color: var(--text-muted);
+font-weight: 800;
+text-transform: uppercase;
+display: block;
+}
+.stat-box b {
+font-size: 0.75rem;
+}
+#trace-canvas {
+background: #fdfbf7;
+width: 100%;
+height: 180px;
+border: 1px solid #e0dbce;
+margin: 8px 0;
+border-radius: 4px;
+}
+
+/* Analysis page smaller fonts */
+#analysis .monitor-frame h2 {
+font-size: 0.65rem !important;
+color: var(--text-muted);
+}
+#analysis .stat-box small {
+font-size: 0.45rem !important;
+}
+#analysis .stat-box b {
+font-size: 0.75rem !important;
+}
+
+#ana-comment {
+font-style: italic;
+font-size: 0.85rem;
+margin-bottom: 1.5rem;
+color: var(--text-muted);
+}
+</style>
+</head>
+<body>
+
+<div id="calibrate" style="width: 1cm; visibility: hidden; position: absolute;"></div>
+
+<div id="app">
+<!-- SETUP SCREEN -->
+<div id="setup" class="screen">
+<div class="card">
+<h1>SCATT <span class="highlight">Steyr LP</span></h1>
+<p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">10m Match Simulation (1.0m Scaled) | 60 Shots</p>
+<div class="input-group">
+<label>Shoulder Height (m)</label>
+<input type="number" id="sh-in" value="1.48" step="0.01">
+</div>
+<button class="btn" onclick="initGame()">ENTER RANGE</button>
+</div>
+</div>
+
+<!-- VIEWPORT -->
+<div id="viewport" class="hidden">
+<div class="match-stats">
+<div>SHOT <span id="hud-shot">1</span>/60</div>
+<div class="timer-box" id="hud-timer">60.00</div>
+<div>SCORE: <span id="hud-total">0.0</span></div>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord"></div>
+</div>
+
+<canvas id="live-trace-canvas"></canvas>
+
+<div id="sight-base">
+<div id="sight-wobble">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+</div>
+
+<div id="controls">
+<div class="d-pad">
+<div class="d-btn btn-up" onmousedown="move(0,-1.5)" onmouseup="stop()" ontouchstart="move(0,-1.5)" ontouchend="stop()">▲</div>
+<div class="d-btn btn-down" onmousedown="move(0,1.5)" onmouseup="stop()" ontouchstart="move(0,1.5)" ontouchend="stop()">▼</div>
+<div class="d-btn btn-left" onmousedown="move(-1.5,0)" onmouseup="stop()" ontouchstart="move(-1.5,0)" ontouchend="stop()">◄</div>
+<div class="d-btn btn-right" onmousedown="move(1.5,0)" onmouseup="stop()" ontouchstart="move(1.5,0)" ontouchend="stop()">►</div>
+</div>
+<button id="fire-btn" onclick="fire()">FIRE</button>
+</div>
+</div>
+
+<!-- ANALYSIS SCREEN -->
+<div id="analysis" class="screen hidden">
+<div class="card">
+<div class="target-3d-wrapper">
+<div class="target-3d" id="closeup"></div>
+</div>
+<div id="ana-status" style="font-weight: bold; color: var(--accent-sage); margin-bottom: 0.5rem;">SHOT RECORDED</div>
+<div class="score-val" id="ana-score">10.9</div>
+<p id="ana-comment"></p>
+
+<div class="monitor-frame">
+<h2>SHOT ANALYSIS</h2>
+<canvas id="trace-canvas"></canvas>
+<div class="stat-grid">
+<div class="stat-box"><small>Stability</small><b><span id="sc-hold">0</span>%</b></div>
+<div class="stat-box"><small>Correction</small><b><span id="sc-drop">0</span> cm</b></div>
+<div class="stat-box"><small>Error mm</small><b><span id="sc-dist">0</span> mm</b></div>
+<div class="stat-box"><small>Time</small><b><span id="sc-time">0</span>s</b></div>
+</div>
+</div>
+
+<button class="btn btn-green" onclick="resetForNextShot()">NEXT SHOT</button>
+</div>
+</div>
+
+<!-- FINAL SCREEN -->
+<div id="final" class="screen hidden">
+<div class="card">
+<h1>Match <span class="highlight">Complete</span></h1>
+<div class="score-val" id="final-score">0.0</div>
+<p id="final-stats" style="margin-bottom: 1.5rem; color: var(--text-muted);"></p>
+<button class="btn" onclick="location.reload()">NEW MATCH</button>
+</div>
+</div>
+</div>
+
+<script>
+const state = {
+sh: 1.48,
+audio: null,
+shot: 1,
+total: 0,
+timeLeft: 60,
+timerInt: null,
+sightX: 0,
+sightY: 0,
+moveInt: null,
+currentTrace: [],
+isFiring: false,
+pelletDropCm: 0,
+pxPerMm: 0,
+animationId: null,
+oscTime: 0,
+lastTime: 0
+};
+
+// ISSF Regulation diameters (mm) for 10m Air Pistol
+const RINGS = [
+{ d: 11.5, val: 10.0 }, { d: 27.5, val: 9.0 }, { d: 43.5, val: 8.0 },
+{ d: 59.5, val: 7.0 }, { d: 75.5, val: 6.0 }, { d: 91.5, val: 5.0 },
+{ d: 107.5, val: 4.0 }, { d: 123.5, val: 3.0 }, { d: 139.5, val: 2.0 },
+{ d: 155.5, val: 1.0 }
+];
+
+function initGame() {
+state.sh = parseFloat(document.getElementById('sh-in').value);
+
+// Initialize audio
+state.audio = new (window.AudioContext || window.webkitAudioContext)();
+if (state.audio.state === 'suspended') state.audio.resume();
+
+// Calibrate pixels per mm
+const cmMeasure = document.getElementById('calibrate').getBoundingClientRect().width;
+state.pxPerMm = cmMeasure / 10;
+
+// Set sway based on shoulder height
+let sway = 3 + (state.sh * 0.5);
+document.documentElement.style.setProperty('--sway-amp', sway + 'px');
+
+// Build 3D target
+build3D();
+
+// Switch to viewport
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.body.style.overflow = 'hidden';
+
+resetShot();
+startLoop();
+}
+
+function resetShot() {
+state.timeLeft = 60;
+state.currentTrace = [];
+state.sightX = 0;
+state.sightY = 0;
+state.isFiring = false;
+state.oscTime = 0;
+state.lastTime = performance.now();
+
+state.pelletDropCm = (Math.random() * (2.3 - 1.9) + 1.9).toFixed(2);
+
+document.getElementById('hud-shot').innerText = state.shot;
+document.getElementById('hud-total').innerText = state.total.toFixed(1);
+document.getElementById('hud-timer').innerText = '60.00';
+document.getElementById('fire-btn').disabled = false;
+
+document.getElementById('sight-base').style.transform = 'translate(0, 0)';
+
+const c = document.getElementById('live-trace-canvas');
+const ctx = c.getContext('2d');
+c.width = window.innerWidth;
+c.height = window.innerHeight;
+ctx.clearRect(0, 0, c.width, c.height);
+}
+
+function startLoop() {
+if (state.animationId) cancelAnimationFrame(state.animationId);
+state.lastTime = performance.now();
+loop();
+}
+
+function loop() {
+if (state.isFiring) {
+state.animationId = null;
+return;
+}
+
+const now = performance.now();
+const dt = (now - state.lastTime) / 1000;
+state.lastTime = now;
+
+// Update timer
+state.timeLeft -= dt;
+document.getElementById('hud-timer').innerText = Math.max(0, state.timeLeft).toFixed(2);
+
+if (state.timeLeft <= 0) {
+processShot(true);
+return;
+}
+
+// Natural sway with user offset
+state.oscTime += dt * 2;
+const ox = (Math.sin(state.oscTime * 0.7) * 6) + (Math.sin(state.oscTime * 1.9) * 2);
+const oy = (Math.cos(state.oscTime * 0.6) * 5) + (Math.sin(state.oscTime * 1.4) * 3);
+
+const tx = state.sightX + ox;
+const ty = state.sightY + oy;
+
+document.getElementById('sight-base').style.transform = `translate(${tx}px, ${ty}px)`;
+
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+
+const currentPos = {
+x: tip.left - bull.left + (tip.width / 2) - (bull.width / 2),
+y: tip.top - bull.top + (tip.height / 2) - (bull.height / 2)
+};
+state.currentTrace.push(currentPos);
+
+drawLiveTrace(currentPos);
+
+state.animationId = requestAnimationFrame(loop);
+}
+
+function drawLiveTrace(pos) {
+const c = document.getElementById('live-trace-canvas');
+const ctx = c.getContext('2d');
+const cx = c.width / 2;
+const cy = c.height / 2;
+
+ctx.strokeStyle = "#5c7cfa";
+ctx.lineWidth = 2;
+
+if (state.currentTrace.length > 1) {
+const prev = state.currentTrace[state.currentTrace.length - 2];
+ctx.beginPath();
+ctx.moveTo(cx + prev.x, cy + prev.y);
+ctx.lineTo(cx + pos.x, cy + pos.y);
+ctx.stroke();
+}
+}
+
+function move(dx, dy) {
+if (state.moveInt) clearInterval(state.moveInt);
+state.moveInt = setInterval(() => {
+state.sightX += dx;
+state.sightY += dy;
+}, 16);
+}
+
+function stop() {
+clearInterval(state.moveInt);
+state.moveInt = null;
+}
+
+function fire() {
+if (state.isFiring || state.timeLeft <= 0) return;
+
+state.isFiring = true;
+beep(200, 'square', 0.1);
+document.getElementById('fire-btn').disabled = true;
+
+if (state.animationId) {
+cancelAnimationFrame(state.animationId);
+state.animationId = null;
+}
+
+setTimeout(() => processShot(false), 100);
+}
+
+function calculateScore(distPx) {
+const distMm = distPx / state.pxPerMm;
+const scaledDist = distMm * 10;
+
+if (scaledDist <= 5.0) {
+return (10.9 - (scaledDist / 5) * 0.5).toFixed(1);
+}
+
+for (let i = 0; i < RINGS.length; i++) {
+if (scaledDist <= RINGS[i].d) {
+const prevD = i === 0 ? 0 : RINGS[i-1].d;
+const ratio = (scaledDist - prevD) / (RINGS[i].d - prevD);
+const base = i === 0 ? 10.4 : RINGS[i-1].val;
+return (base - ratio).toFixed(1);
+}
+}
+return "0.0";
+}
+
+function processShot(isTimeout) {
+const anaScore = document.getElementById('ana-score');
+const anaStatus = document.getElementById('ana-status');
+const anaComment = document.getElementById('ana-comment');
+let score = 0;
+let dx = 0, dy = 0;
+
+if (isTimeout) {
+score = 0;
+anaStatus.innerText = "TIME EXPIRED";
+anaStatus.style.color = "var(--danger)";
+} else {
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const mRect = document.getElementById('target-master').getBoundingClientRect();
+
+dx = tip.left - bull.left;
+dy = (tip.top + (state.pelletDropCm * 37.8 / 10)) - bull.top;
+
+const distPx = Math.hypot(dx, dy);
+score = calculateScore(distPx);
+
+anaStatus.innerText = "SHOT RECORDED";
+anaStatus.style.color = "var(--accent-sage)";
+
+// Place tiny hole on target
+const hole = document.createElement('div');
+hole.className = 'hole-tiny';
+hole.style.left = (tip.left - mRect.left) + 'px';
+hole.style.top = (tip.top + (state.pelletDropCm * 37.8 / 10) - mRect.top) + 'px';
+document.getElementById('target-master').appendChild(hole);
+
+beep(800, 'sine', 0.1);
+}
+
+state.total += parseFloat(score);
+anaScore.innerText = score;
+anaComment.innerText = getCoach(score);
+
+// Update 3D closeup
+const closeup = document.getElementById('closeup');
+const oldHole = closeup.querySelector('.hole-3d');
+if (oldHole) oldHole.remove();
+
+const h3 = document.createElement('div');
+h3.className = 'hole-3d';
+h3.style.left = `calc(50% + ${(dx/30)*50}%)`;
+h3.style.top = `calc(50% + ${(dy/30)*50}%)`;
+closeup.appendChild(h3);
+
+// Update analysis stats
+const distPx = Math.hypot(dx, dy);
+document.getElementById('sc-drop').innerText = state.pelletDropCm;
+document.getElementById('sc-dist').innerText = (distPx / state.pxPerMm).toFixed(2);
+document.getElementById('sc-time').innerText = (60 - state.timeLeft).toFixed(1);
+
+// Calculate hold stability
+if (state.currentTrace.length > 1) {
+const last60 = state.currentTrace.slice(-60);
+let moveSum = 0;
+for (let i = 1; i < last60.length; i++) {
+moveSum += Math.hypot(last60[i].x - last60[i-1].x, last60[i].y - last60[i-1].y);
+}
+document.getElementById('sc-hold').innerText = Math.max(0, Math.round(100 - (moveSum * 0.4)));
+} else {
+document.getElementById('sc-hold').innerText = '0';
+}
+
+drawTraceAnalysis();
+
+// Switch screens
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('analysis').classList.remove('hidden');
+document.body.style.overflow = 'auto';
+}
+
+function drawTraceAnalysis() {
+const c = document.getElementById('trace-canvas');
+const ctx = c.getContext('2d');
+const w = c.width = c.offsetWidth;
+const h = c.height = c.offsetHeight;
+
+ctx.clearRect(0, 0, w, h);
+ctx.save();
+ctx.translate(w/2, h/2);
+
+// Draw rings
+ctx.strokeStyle = "#e0dbce";
+ctx.lineWidth = 0.5;
+RINGS.forEach(r => {
+ctx.beginPath();
+ctx.arc(0, 0, (r.d / 20) * (state.pxPerMm * 10), 0, Math.PI*2);
+ctx.stroke();
+});
+
+// Draw trace path
+if (state.currentTrace.length > 1) {
+ctx.lineWidth = 1.5;
+ctx.strokeStyle = "#5c7cfa";
+ctx.beginPath();
+state.currentTrace.forEach((p, i) => {
+if (i === 0) ctx.moveTo(p.x * 5, p.y * 5);
+else ctx.lineTo(p.x * 5, p.y * 5);
+});
+ctx.stroke();
+}
+
+// Draw shot position
+if (state.currentTrace.length > 0) {
+const lp = state.currentTrace[state.currentTrace.length - 1];
+ctx.fillStyle = "#d4a373";
+ctx.beginPath();
+ctx.arc(lp.x * 5, lp.y * 5, 4, 0, Math.PI*2);
+ctx.fill();
+}
+
+ctx.restore();
+}
+
+function resetForNextShot() {
+if (state.shot >= 60) {
+showFinal();
+return;
+}
+
+state.shot++;
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.body.style.overflow = 'hidden';
+
+resetShot();
+startLoop();
+}
+
+function showFinal() {
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('final').classList.remove('hidden');
+document.getElementById('final-score').innerText = state.total.toFixed(1);
+document.getElementById('final-stats').innerText = `Average: ${(state.total/60).toFixed(2)} | Best coaches say: consistency wins matches`;
+}
+
+function build3D() {
+const c = document.getElementById('closeup');
+c.innerHTML = '';
+for (let i = 1; i <= 10; i++) {
+let d = 155.5 - ((i-1)*16);
+let p = (d/155.5)*100;
+let r = document.createElement('div');
+r.className = 'ring-3d' + (i >= 7 ? ' black' : '');
+r.style.width = p+'%';
+r.style.height = p+'%';
+c.appendChild(r);
+}
+}
+
+function getCoach(s) {
+s = parseFloat(s);
+if (s >= 10.5) return "World class. Hold that focus.";
+if (s >= 10.0) return "Clean shot. Keep your rhythm.";
+if (s >= 9.0) return "Check your follow-through.";
+return "Breathe and reset. Don't rush the trigger.";
+}
+
+function beep(f, t, d) {
+if (!state.audio) return;
+try {
+const o = state.audio.createOscillator();
+const g = state.audio.createGain();
+o.type = t;
+o.frequency.value = f;
+g.gain.setValueAtTime(0.1, state.audio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.01, state.audio.currentTime + d);
+o.connect(g);
+g.connect(state.audio.destination);
+o.start();
+o.stop(state.audio.currentTime + d);
+} catch(e) {}
+}
+
+// Cleanup
+window.addEventListener('beforeunload', () => {
+if (state.animationId) cancelAnimationFrame(state.animationId);
+if (state.moveInt) clearInterval(state.moveInt);
+if (state.timerInt) clearInterval(state.timerInt);
+});
+</script>
+</body>
+</html>

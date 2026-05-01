@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | ISSF 10m Edition</title>
+<style>
+:root {
+/* 10m Target Scaled to 1m viewing distance (approx 1/10th scale) */
+--target-card-size: 1.70cm;
+--black-ring-size: 0.59cm;
+--ten-ring-size: 0.12cm;
+
+/* UI Colors */
+--bg-deep: #0a0c10;
+--panel-3d: linear-gradient(145deg, #232931, #1a1d23);
+--accent-gold: #fbbf24;
+--danger-red: #ff4d4d;
+--glass: rgba(255, 255, 255, 0.05);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+
+body {
+background-color: var(--bg-deep);
+color: #fff;
+overflow: hidden;
+height: 100vh;
+touch-action: none;
+}
+
+/* 3D Container Depth */
+#viewport {
+perspective: 1200px;
+height: 100vh;
+display: flex;
+flex-direction: column;
+background: radial-gradient(circle at center, #1e2229 0%, #080a0c 100%);
+}
+
+/* Target Setup */
+#range-view {
+flex: 1;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+transform-style: preserve-3d;
+}
+
+.target-card {
+width: var(--target-card-size);
+height: var(--target-card-size);
+background: #fdfdfd;
+border-radius: 2px;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+/* CHANGES MADE: Added 3D drop shadow and slight tilt for depth */
+box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 0 5px rgba(0,0,0,0.1);
+transform: rotateX(5deg);
+}
+
+.black-ring {
+width: var(--black-ring-size);
+height: var(--black-ring-size);
+background: #111;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.ten-ring {
+width: var(--ten-ring-size);
+height: var(--ten-ring-size);
+border: 0.1mm solid var(--danger-red);
+border-radius: 50%;
+}
+
+/* Sights - 3D Feel */
+#sight-system {
+position: absolute;
+pointer-events: none;
+z-index: 100;
+transform-style: preserve-3d;
+}
+
+.front-post {
+width: 12px;
+height: 40px;
+background: linear-gradient(to right, #000, #333, #000);
+border-top: 3px solid #444;
+position: relative;
+transform: translate(-50%, -100%) translateZ(50px);
+}
+
+.rear-notch {
+width: 70px;
+height: 45px;
+border-left: 24px solid #080808;
+border-right: 24px solid #080808;
+border-bottom: 24px solid #080808;
+position: absolute;
+transform: translate(-50%, -30px) translateZ(20px);
+opacity: 0.9;
+}
+
+/* Analysis Panel */
+#analysis-tray {
+height: 220px;
+background: var(--panel-3d);
+border-top: 2px solid #333;
+padding: 15px;
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 15px;
+box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+z-index: 200;
+}
+
+.stat-box {
+background: rgba(0,0,0,0.3);
+border-radius: 8px;
+padding: 10px;
+border: 1px solid rgba(255,255,255,0.1);
+text-align: center;
+}
+
+.score-big {
+font-size: 2.5rem;
+font-weight: 800;
+color: var(--accent-gold);
+text-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+}
+
+/* Controls */
+#controls {
+position: fixed;
+bottom: 30px;
+width: 100%;
+display: flex;
+justify-content: space-around;
+align-items: center;
+pointer-events: none;
+}
+
+.joystick-base {
+width: 100px;
+height: 100px;
+background: rgba(255,255,255,0.05);
+border-radius: 50%;
+border: 2px solid rgba(255,255,255,0.1);
+position: relative;
+pointer-events: auto;
+}
+
+.joystick-knob {
+width: 40px;
+height: 40px;
+background: radial-gradient(circle at 30% 30%, #444, #000);
+border-radius: 50%;
+position: absolute;
+top: 30px;
+left: 30px;
+transition: transform 0.1s;
+box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+#fire-btn {
+width: 80px;
+height: 80px;
+background: radial-gradient(circle, #ff4d4d, #990000);
+border: 4px solid #222;
+border-radius: 50%;
+color: white;
+font-weight: bold;
+cursor: pointer;
+pointer-events: auto;
+box-shadow: 0 8px 0 #660000, 0 15px 25px rgba(0,0,0,0.5);
+active: transform translateY(4px);
+}
+
+#fire-btn:active {
+transform: translateY(4px);
+box-shadow: 0 4px 0 #660000;
+}
+
+.label-key {
+font-size: 10px;
+color: var(--accent-gold);
+position: absolute;
+width: 100%;
+text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div id="viewport">
+<div id="range-view">
+<div class="target-card" id="target-base">
+<div class="black-ring">
+<div class="ten-ring"></div>
+</div>
+</div>
+
+<div id="sight-system">
+<div class="rear-notch"></div>
+<div class="front-post" id="front-post"></div>
+</div>
+</div>
+
+<div id="analysis-tray">
+<div class="stat-box">
+<div style="font-size: 10px; opacity: 0.6;">LAST SHOT</div>
+<div class="score-big" id="last-score">0.0</div>
+</div>
+<div class="stat-box">
+<div style="font-size: 10px; opacity: 0.6;">STABILITY (S1)</div>
+<div id="stability-val" style="font-size: 1.5rem; margin-top: 5px;">--%</div>
+</div>
+<div class="stat-box" style="grid-column: span 2;">
+<div id="coach-msg" style="font-style: italic; color: #94a3b8; font-size: 13px;">Ready on the firing line.</div>
+</div>
+</div>
+</div>
+
+<div id="controls">
+<div class="joystick-base">
+<div class="label-key" style="top: -20px;">W</div>
+<div class="label-key" style="bottom: -20px;">S</div>
+<div class="label-key" style="left: -20px; top: 40px; width: auto;">A</div>
+<div class="label-key" style="right: -20px; top: 40px; width: auto;">D</div>
+<div class="joystick-knob" id="knob"></div>
+</div>
+<button id="fire-btn">FIRE</button>
+</div>
+
+<script>
+const state = {
+x: 0, y: 0,
+keys: { w: false, a: false, s: false, d: false },
+isFiring: false,
+trace: []
+};
+
+const $sight = document.getElementById('sight-system');
+const $knob = document.getElementById('knob');
+const $target = document.getElementById('target-base');
+const $fireBtn = document.getElementById('fire-btn');
+
+// CHANGES MADE: Linked joystick control logic to Keyboard buttons A, S, D, W
+window.addEventListener('keydown', (e) => {
+const key = e.key.toLowerCase();
+if (state.keys.hasOwnProperty(key)) state.keys[key] = true;
+if (key === ' ' || key === 'enter') fire();
+});
+
+window.addEventListener('keyup', (e) => {
+const key = e.key.toLowerCase();
+if (state.keys.hasOwnProperty(key)) state.keys[key] = false;
+});
+
+function update() {
+const speed = 1.2;
+const drift = 0.2; // Natural sway
+
+// CHANGES MADE: Movement calculation based on WASD keys
+if (state.keys.w) state.y -= speed;
+if (state.keys.s) state.y += speed;
+if (state.keys.a) state.x -= speed;
+if (state.keys.d) state.x += speed;
+
+// Simulate micro-tremor
+state.x += (Math.random() - 0.5) * drift;
+state.y += (Math.random() - 0.5) * drift;
+
+// Apply visual movement
+$sight.style.transform = `translate(${state.x}px, ${state.y}px)`;
+
+// CHANGES MADE: Visually move joystick knob to match keyboard input
+let knobX = 0, knobY = 0;
+if (state.keys.a) knobX = -15;
+if (state.keys.d) knobX = 15;
+if (state.keys.w) knobY = -15;
+if (state.keys.s) knobY = 15;
+$knob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+
+requestAnimationFrame(update);
+}
+
+function fire() {
+// CHANGES MADE: Implemented scoring calculation based on 10m target physics
+const dist = Math.hypot(state.x, state.y);
+
+// 10-ring is 0.12cm, but we calculate based on pixels in viewport
+// Simple logic for game feel:
+let score = 0;
+if (dist < 3) score = 10.9;
+else if (dist < 15) score = (10.9 - (dist / 10)).toFixed(1);
+else score = (9.0 - (dist / 20)).toFixed(1);
+
+if (score < 0) score = 0;
+
+document.getElementById('last-score').innerText = score;
+document.getElementById('stability-val').innerText = (98 - (dist/5)).toFixed(0) + "%";
+
+// Feedback
+const msg = score > 10 ? "Inner Ten! Excellent release." : "Hold was shaky. Watch the front sight.";
+document.getElementById('coach-msg').innerText = msg;
+
+// Recoil effect
+$sight.style.transition = 'transform 0.05s';
+$sight.style.transform = `translate(${state.x}px, ${state.y - 20}px)`;
+setTimeout(() => {
+$sight.style.transition = 'none';
+}, 50);
+}
+
+$fireBtn.addEventListener('click', fire);
+update();
+</script>
+
+</body>
+</html>
+
