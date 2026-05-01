@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ISSF Precision Air Pistol Sim - Pro Edition</title>
+<style>
+:root {
+--primary: #0ea5e9;
+--accent: #10b981;
+--bg: #09090b;
+--panel: rgba(24, 24, 27, 0.85);
+/* Gameplay scale: 10m scaled to 1m angular view. 1cm = 37.8px */
+--target-card: calc(1.70 * 37.8px);
+--target-black: calc(0.59 * 37.8px);
+--target-10ring: calc(0.12 * 37.8px);
+--sway-amp: 4px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; user-select: none; }
+body { background: var(--bg); color: #f8fafc; height: 100vh; overflow: hidden; touch-action: none; }
+
+/* --- UI System --- */
+.screen {
+position: fixed; inset: 0; z-index: 100;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle at center, #27272a 0%, #09090b 100%);
+backdrop-filter: blur(12px);
+transition: opacity 0.3s;
+}
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel); padding: 2.5rem; border-radius: 1.5rem;
+border: 1px solid rgba(255,255,255,0.05); width: 90%; max-width: 450px;
+box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1);
+text-align: center; display: flex; flex-direction: column; gap: 1rem;
+}
+
+h1 { font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+.highlight { color: var(--primary); }
+p.desc { font-size: 0.85rem; color: #a1a1aa; line-height: 1.5; }
+
+.input-group { text-align: left; }
+label { display: block; font-size: 0.75rem; font-weight: 700; color: #71717a; margin-bottom: 0.5rem; text-transform: uppercase; }
+input {
+width: 100%; background: #18181b; border: 1px solid #3f3f46;
+color: white; padding: 0.8rem; border-radius: 0.5rem; font-size: 1rem; font-weight: bold;
+}
+input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2); }
+
+.btn {
+background: linear-gradient(135deg, var(--primary), #0284c7); color: white; border: none;
+padding: 1rem; border-radius: 0.5rem; font-weight: 800; cursor: pointer;
+transition: transform 0.1s, filter 0.2s; text-transform: uppercase; letter-spacing: 1px;
+box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+}
+.btn:active { transform: scale(0.98); filter: brightness(0.9); }
+.btn-green { background: linear-gradient(135deg, var(--accent), #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); }
+
+/* --- Gameplay Viewport --- */
+#viewport {
+position: relative; width: 100vw; height: 100vh;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle, #e2e8f0 0%, #94a3b8 100%);
+}
+
+/* Tiny 10m Target */
+#target-master {
+position: absolute; width: var(--target-card); height: var(--target-card);
+background: #fafafa; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+display: flex; align-items: center; justify-content: center;
+}
+.ring-black { position: absolute; border-radius: 50%; width: var(--target-black); height: var(--target-black); background: #111; }
+.ring-10 { position: absolute; border-radius: 50%; width: var(--target-10ring); height: var(--target-10ring); border: 0.5px solid rgba(255,255,255,0.7); }
+#bullseye-coord { position: absolute; width: 1px; height: 1px; }
+
+/* Sights & Wobble */
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; }
+#sight-wobble {
+position: absolute; top: 0; left: 0; width: 100px; height: 100px;
+transform: translate(-50%, -50%);
+animation: hand-shake 3.5s infinite ease-in-out alternate;
+}
+@keyframes hand-shake {
+0% { transform: translate(calc(-50% + var(--sway-amp)), calc(-50% - var(--sway-amp))); }
+33% { transform: translate(calc(-50% - var(--sway-amp)*1.2), calc(-50% + var(--sway-amp)*0.8)); }
+66% { transform: translate(calc(-50% + var(--sway-amp)*0.5), calc(-50% + var(--sway-amp)*1.5)); }
+100% { transform: translate(calc(-50% - var(--sway-amp)), calc(-50% - var(--sway-amp)*0.5)); }
+}
+
+.front-i {
+position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%);
+width: 14px; height: 45px; background: #18181b; border-top: 2px solid #52525b;
+box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+}
+.rear-u {
+position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 66px; height: 45px;
+border-left: 22px solid #09090b; border-right: 22px solid #09090b; border-bottom: 22px solid #09090b;
+}
+#aim-tip { position: absolute; top: 0; left: 50%; width: 1px; height: 1px; }
+
+.hole-tiny { position: absolute; width: 3px; height: 3px; background: #000; border-radius: 50%; transform: translate(-50%, -50%); z-index: 20; }
+
+/* --- HUD & Controls --- */
+#hud { position: absolute; inset: 0; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-end; padding: 2.5rem; z-index: 50; }
+
+.match-stats {
+position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+background: rgba(0,0,0,0.7); padding: 0.5rem 1.5rem; border-radius: 2rem;
+color: white; font-weight: bold; font-family: monospace; font-size: 1.2rem;
+display: flex; gap: 2rem; border: 1px solid rgba(255,255,255,0.1);
+}
+
+.d-pad {
+pointer-events: auto; position: relative; width: 140px; height: 140px;
+background: radial-gradient(circle, rgba(39, 39, 42, 0.8), rgba(24, 24, 27, 0.9));
+border-radius: 50%; border: 2px solid #3f3f46; box-shadow: inset 0 4px 10px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.5);
+}
+.d-btn {
+position: absolute; width: 44px; height: 44px;
+background: linear-gradient(180deg, #52525b, #3f3f46); border-radius: 50%;
+display: flex; align-items: center; justify-content: center;
+color: #d4d4d8; font-size: 1.2rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+transition: all 0.1s;
+}
+.d-btn:active { background: #27272a; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8); transform: translateY(2px); }
+.btn-up { top: 4px; left: 48px; } .btn-down { bottom: 4px; left: 48px; }
+.btn-left { top: 48px; left: 4px; } .btn-right { top: 48px; right: 4px; }
+
+.action-pad { pointer-events: auto; }
+#trigger-btn {
+width: 100px; height: 100px; border-radius: 50%;
+background: radial-gradient(circle at 30% 30%, #f87171, #dc2626); color: white; font-weight: 900; font-size: 1.2rem;
+border: 4px solid #7f1d1d; box-shadow: inset -4px -4px 10px rgba(0,0,0,0.3), 0 10px 20px rgba(0,0,0,0.6); cursor: pointer;
+}
+#trigger-btn:active { transform: scale(0.92); box-shadow: inset 4px 4px 10px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.6); }
+
+/* --- 3D Target Analysis --- */
+.target-3d-wrapper {
+perspective: 1000px; width: 250px; height: 250px; margin: 0 auto;
+}
+.target-3d {
+width: 100%; height: 100%; position: relative; border-radius: 50%;
+background: #fdfdfd;
+transform: rotateX(20deg) rotateY(-15deg);
+box-shadow:
+-5px 5px 0px #d4d4d8, -10px 10px 0px #a1a1aa,
+-15px 15px 25px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.05);
+transform-style: preserve-3d; transition: transform 0.5s ease;
+}
+
+/* 3D Target Rings (Relative Sizing) */
+.ring-3d { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid #71717a; }
+.ring-3d.black { background: #18181b; border-color: #27272a; }
+.ring-3d.white-line { border-color: rgba(255,255,255,0.4); }
+.hole-3d {
+position: absolute; width: 14px; height: 14px; background: #000; border-radius: 50%; transform: translate(-50%, -50%);
+box-shadow: inset 2px 2px 4px #27272a, 0 0 0 1px rgba(255,255,255,0.2); z-index: 50;
+}
+
+.score-display { font-size: 5rem; font-weight: 900; color: #fff; margin: -10px 0; text-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+.coach-comment { font-style: italic; color: #a1a1aa; background: rgba(0,0,0,0.3); padding: 0.8rem; border-radius: 0.5rem; font-size: 0.9rem; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; text-align: left; }
+.stat-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; font-size: 0.8rem; }
+.stat-box span { display: block; color: var(--primary); font-weight: bold; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup" class="screen">
+<div class="card">
+<h1>ISSF <span class="highlight">Pro Match</span></h1>
+<p class="desc">60-Shot Precision Air Pistol Match.<br>Enter your physical metrics to calibrate stance stability.</p>
+
+<div class="input-group">
+<label>Player Height (m)</label>
+<input type="number" id="h-in" value="1.78" step="0.01">
+</div>
+<div class="input-group">
+<label>Shoulder Height (Ground to Joint, m)</label>
+<input type="number" id="sh-in" value="1.48" step="0.01">
+</div>
+
+<button class="btn" onclick="startMatch()">Enter Range</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="match-stats">
+<div>Shot: <span id="hud-shot">1</span>/60</div>
+<div>Score: <span id="hud-score">0.0</span></div>
+</div>
+
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord"></div>
+</div>
+
+<div id="sight-base">
+<div id="sight-wobble">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+</div>
+
+<div id="hud">
+<div class="d-pad">
+<div class="d-btn btn-up" onmousedown="startMove(0, -1)" onmouseup="stopMove()" ontouchstart="startMove(0, -1)" ontouchend="stopMove()">▲</div>
+<div class="d-btn btn-down" onmousedown="startMove(0, 1)" onmouseup="stopMove()" ontouchstart="startMove(0, 1)" ontouchend="stopMove()">▼</div>
+<div class="d-btn btn-left" onmousedown="startMove(-1, 0)" onmouseup="stopMove()" ontouchstart="startMove(-1, 0)" ontouchend="stopMove()">◄</div>
+<div class="d-btn btn-right" onmousedown="startMove(1, 0)" onmouseup="stopMove()" ontouchstart="startMove(1, 0)" ontouchend="stopMove()">►</div>
+</div>
+<div class="action-pad">
+<button id="trigger-btn" onclick="fire()">FIRE</button>
+</div>
+</div>
+</div>
+
+<div id="analysis" class="screen hidden">
+<div class="card" style="max-width: 500px;">
+<div class="target-3d-wrapper">
+<div class="target-3d" id="closeup-target">
+</div>
+</div>
+
+<div class="score-display" id="shot-score">10.9</div>
+<div class="coach-comment" id="coach-text">"Flawless execution. Perfect alignment."</div>
+
+<button class="btn btn-green" id="next-shot-btn" onclick="nextShot()">Next Shot</button>
+</div>
+</div>
+
+<div id="summary" class="screen hidden">
+<div class="card">
+<h1>Match <span class="highlight">Complete</span></h1>
+<p class="desc">Official 60-Shot Aggregate Results</p>
+
+<div class="score-display" style="font-size: 4rem;" id="final-total">600.0</div>
+
+<div class="stat-grid">
+<div class="stat-box">Average Shot <span id="stat-avg">0.0</span></div>
+<div class="stat-box">Inner Tens (10.x) <span id="stat-tens">0</span></div>
+</div>
+
+<button class="btn" style="margin-top: 1rem;" onclick="location.reload()">Play Again</button>
+</div>
+</div>
+</div>
+
+<script>
+// --- Application State ---
+const state = {
+h: 1.78, sh: 1.48, audioCtx: null,
+currentShot: 1, maxShots: 60,
+scores: [], totalScore: 0
+};
+
+let sightX = 0, sightY = 0, moveInterval = null;
+const sightBase = document.getElementById('sight-base');
+
+// --- Audio Engine ---
+function initAudio() {
+if (!state.audioCtx) state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playSound(freq, type, dur, vol) {
+if(!state.audioCtx) return;
+const osc = state.audioCtx.createOscillator();
+const gain = state.audioCtx.createGain();
+osc.type = type; osc.frequency.setValueAtTime(freq, state.audioCtx.currentTime);
+gain.gain.setValueAtTime(vol, state.audioCtx.currentTime);
+gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + dur);
+osc.connect(gain); gain.connect(state.audioCtx.destination);
+osc.start(); osc.stop(state.audioCtx.currentTime + dur);
+}
+
+// --- UI Generation ---
+function build3DTarget() {
+const tgt = document.getElementById('closeup-target');
+tgt.innerHTML = ''; // Clear
+// 10 rings, proportional scaling. Ring 1 is 100% width.
+// ISSF 1 ring is 155.5mm. 10 ring is 11.5mm.
+for(let i=1; i<=10; i++) {
+let diam = 155.5 - ((i-1) * 16); // 8mm per side
+let pct = (diam / 155.5) * 100;
+let ring = document.createElement('div');
+ring.className = 'ring-3d';
+if(i >= 7) ring.classList.add('black');
+if(i >= 7 && i < 10) ring.classList.add('white-line');
+ring.style.width = `${pct}%`;
+ring.style.height = `${pct}%`;
+tgt.appendChild(ring);
+}
+}
+
+// --- Coaching Logic ---
+function getCoachingComment(score) {
+if (score >= 10.5) return "Brilliant shot. Perfect hold and clean release.";
+if (score >= 10.0) return "Solid ten. Keep trusting your natural point of aim.";
+if (score >= 9.5) return "Good attempt. Watch for slight anticipation on the trigger.";
+if (score >= 9.0) return "Slight drift. Re-check your breathing cycle before the break.";
+if (score >= 8.0) return "You pulled it. Focus on keeping the front sight crystal clear.";
+return "Loss of concentration. Put the gun down, rest your arm, and reset.";
+}
+
+// --- Game Mechanics ---
+function startMove(dx, dy) {
+if(moveInterval) clearInterval(moveInterval);
+moveInterval = setInterval(() => { sightX += dx * 1.5; sightY += dy * 1.5; updateSight(); }, 16);
+}
+function stopMove() { if(moveInterval) clearInterval(moveInterval); }
+function updateSight() { sightBase.style.transform = `translate(${sightX}px, ${sightY}px)`; }
+
+function startMatch() {
+initAudio();
+state.h = parseFloat(document.getElementById('h-in').value);
+state.sh = parseFloat(document.getElementById('sh-in').value);
+
+let heightDiff = state.sh - 1.45;
+document.getElementById('target-master').style.transform = `translateY(${heightDiff * -20}px)`;
+let sway = 3 + (state.sh * 0.5);
+document.documentElement.style.setProperty('--sway-amp', sway + 'px');
+
+build3DTarget();
+updateHUD();
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+}
+
+function updateHUD() {
+document.getElementById('hud-shot').innerText = state.currentShot;
+document.getElementById('hud-score').innerText = state.totalScore.toFixed(1);
+}
+
+function fire() {
+playSound(200, 'square', 0.08, 0.2);
+document.getElementById('trigger-btn').disabled = true; // Prevent double firing
+
+setTimeout(() => {
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const master = document.getElementById('target-master');
+const mRect = master.getBoundingClientRect();
+
+// Logic: 1cm = 37.8px. Visual 10m scale drops 0.19cm
+const visualDropPx = 0.19 * 37.8;
+const hitX = tip.left + (tip.width/2);
+const hitY = tip.top + visualDropPx;
+
+// Mark tiny hole
+const hole = document.createElement('div');
+hole.className = 'hole-tiny';
+hole.style.left = (hitX - mRect.left) + 'px';
+hole.style.top = (hitY - mRect.top) + 'px';
+master.appendChild(hole);
+
+// Calc distances
+const dx = hitX - bull.left;
+const dy = hitY - bull.top;
+const distPx = Math.hypot(dx, dy);
+const distCm = distPx / 37.8;
+
+let score = 11.0 - (distCm / 0.08);
+if (score > 10.9) score = 10.9;
+if (score < 0) score = 0;
+
+state.scores.push(score);
+state.totalScore += score;
+playSound(900, 'triangle', 0.1, 0.15);
+
+setTimeout(() => { showAnalysis(score, dx, dy, mRect.width); }, 800);
+}, 65);
+}
+
+function showAnalysis(score, dx, dy, tinyTargetWidth) {
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('analysis').classList.remove('hidden');
+
+document.getElementById('shot-score').innerText = score.toFixed(1);
+document.getElementById('coach-text').innerText = getCoachingComment(score);
+
+// Map tiny target offset to 3D closeup target percentage
+// dx, dy are pixel offsets from center of tiny target
+// tinyTargetWidth is the physical pixel width of the tiny target
+const pctX = (dx / (tinyTargetWidth / 2)) * 50;
+const pctY = (dy / (tinyTargetWidth / 2)) * 50;
+
+const closeupTgt = document.getElementById('closeup-target');
+// Clear previous 3d hole
+const oldHole = closeupTgt.querySelector('.hole-3d');
+if(oldHole) oldHole.remove();
+
+const hole3D = document.createElement('div');
+hole3D.className = 'hole-3d';
+// Center is 50%, add offset
+hole3D.style.left = `calc(50% + ${pctX}%)`;
+hole3D.style.top = `calc(50% + ${pctY}%)`;
+closeupTgt.appendChild(hole3D);
+
+// Randomize the 3D rotation slightly to feel dynamic
+let rotX = 15 + Math.random() * 10;
+let rotY = -20 + Math.random() * 10;
+closeupTgt.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+
+// Check if Match Over
+const btn = document.getElementById('next-shot-btn');
+if (state.currentShot >= state.maxShots) {
+btn.innerText = "View Match Summary";
+} else {
+btn.innerText = "Next Shot";
+}
+}
+
+function nextShot() {
+if (state.currentShot >= state.maxShots) {
+showSummary();
+return;
+}
+state.currentShot++;
+updateHUD();
+document.getElementById('trigger-btn').disabled = false;
+
+// Reset Sights
+sightX = 0; sightY = 0; updateSight();
+
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+}
+
+function showSummary() {
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('summary').classList.remove('hidden');
+
+document.getElementById('final-total').innerText = state.totalScore.toFixed(1);
+document.getElementById('stat-avg').innerText = (state.totalScore / state.maxShots).toFixed(2);
+
+const tens = state.scores.filter(s => s >= 10.0).length;
+document.getElementById('stat-tens').innerText = tens;
+}
+
+document.querySelectorAll('.d-btn').forEach(btn => btn.addEventListener('contextmenu', e => e.preventDefault()));
+</script>
+</body>
+</html>
+

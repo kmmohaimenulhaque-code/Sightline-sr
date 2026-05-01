@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ISSF Precision Air Pistol Sim - Angular Mode</title>
+<style>
+:root {
+--primary: #0ea5e9;
+--bg: #0f172a;
+--panel: rgba(30, 41, 59, 0.95);
+/* Hardcoded visual sizes to ensure cross-device exact pixel parity */
+/* CSS standard: 1cm = 37.8px */
+--target-card: calc(1.70 * 37.8px);
+--target-black: calc(0.59 * 37.8px);
+--target-10ring: calc(0.12 * 37.8px);
+--sway-amp: 4px; /* Oscillating amplitude */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+body { background: var(--bg); color: #f8fafc; height: 100vh; overflow: hidden; touch-action: none; }
+
+/* --- UI Screens --- */
+.screen {
+position: fixed; inset: 0; z-index: 100;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+backdrop-filter: blur(10px);
+transition: opacity 0.3s;
+}
+
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel); padding: 2.5rem; border-radius: 1.5rem;
+border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 400px;
+box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); text-align: center;
+}
+
+h1 { font-weight: 800; color: var(--primary); margin-bottom: 0.5rem; font-size: 1.5rem; text-transform: uppercase; }
+p.desc { font-size: 0.85rem; color: #94a3b8; margin-bottom: 2rem; line-height: 1.5; }
+
+.input-group { text-align: left; margin-bottom: 1.25rem; }
+label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #cbd5e1; margin-bottom: 0.5rem; }
+input {
+width: 100%; background: #0f172a; border: 1px solid #334155;
+color: white; padding: 0.8rem; border-radius: 0.5rem; font-size: 1rem;
+}
+input:focus { border-color: var(--primary); outline: none; }
+
+.btn {
+background: var(--primary); color: white; border: none; width: 100%;
+padding: 1rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer;
+transition: transform 0.1s, background 0.2s; text-transform: uppercase;
+}
+.btn:active { transform: scale(0.98); background: #0284c7; }
+
+/* --- Simulation Viewport --- */
+#viewport {
+position: relative; width: 100vw; height: 100vh;
+display: flex; align-items: center; justify-content: center;
+background: #cbd5e1; /* Range background */
+}
+
+/* 10m Target (Strictly Sized) */
+#target-master {
+position: absolute;
+width: var(--target-card); height: var(--target-card);
+background: #fdfdfd; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+display: flex; align-items: center; justify-content: center;
+}
+
+.ring-black {
+position: absolute; border-radius: 50%;
+width: var(--target-black); height: var(--target-black);
+background: #111;
+}
+
+.ring-10 {
+position: absolute; border-radius: 50%;
+width: var(--target-10ring); height: var(--target-10ring);
+border: 0.5px solid rgba(255,255,255,0.8);
+background: transparent;
+}
+
+#bullseye-coord { position: absolute; width: 1px; height: 1px; }
+
+/* Iron Sights */
+#sight-base {
+position: absolute;
+/* Start center-ish */
+top: 50%; left: 50%;
+width: 0px; height: 0px; /* Origin point */
+z-index: 10;
+}
+
+/* Continuous Oscillation Layer */
+#sight-wobble {
+position: absolute;
+top: 0; left: 0;
+width: 100px; height: 100px;
+transform: translate(-50%, -50%);
+animation: hand-shake 3s infinite ease-in-out alternate;
+}
+
+@keyframes hand-shake {
+0% { transform: translate(calc(-50% + var(--sway-amp)), calc(-50% - var(--sway-amp))); }
+33% { transform: translate(calc(-50% - var(--sway-amp)), calc(-50% + var(--sway-amp)/2)); }
+66% { transform: translate(calc(-50% + var(--sway-amp)/2), calc(-50% + var(--sway-amp))); }
+100% { transform: translate(calc(-50% - var(--sway-amp)), calc(-50% - var(--sway-amp)/2)); }
+}
+
+/* Front Sight (Scaled to match the tiny visual target) */
+.front-i {
+position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%);
+width: 12px; height: 40px; background: #222;
+border-top: 1px solid #555;
+}
+
+/* Rear Sight Notch */
+.rear-u {
+position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+width: 60px; height: 40px;
+border-left: 20px solid #111; border-right: 20px solid #111; border-bottom: 20px solid #111;
+}
+
+#aim-tip { position: absolute; top: 0; left: 50%; width: 1px; height: 1px; }
+
+/* Shot Hole */
+.hole {
+position: absolute; width: 3px; height: 3px; background: #222;
+border-radius: 50%; transform: translate(-50%, -50%);
+box-shadow: inset 0.5px 0.5px 1px #000; z-index: 20;
+}
+
+/* --- Controller Overlay --- */
+#hud {
+position: absolute; inset: 0; pointer-events: none;
+display: flex; justify-content: space-between; align-items: flex-end;
+padding: 2rem; z-index: 50;
+}
+
+/* Joystick (Left) */
+.d-pad {
+pointer-events: auto;
+position: relative; width: 120px; height: 120px;
+background: rgba(15, 23, 42, 0.4); border-radius: 50%;
+border: 2px solid rgba(255,255,255,0.1);
+}
+.d-btn {
+position: absolute; width: 40px; height: 40px;
+background: rgba(255,255,255,0.2); border-radius: 50%;
+display: flex; align-items: center; justify-content: center;
+color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer;
+}
+.d-btn:active { background: rgba(255,255,255,0.5); }
+.btn-up { top: 0; left: 40px; }
+.btn-down { bottom: 0; left: 40px; }
+.btn-left { top: 40px; left: 0; }
+.btn-right { top: 40px; right: 0; }
+
+/* Action (Right) */
+.action-pad { pointer-events: auto; }
+#trigger-btn {
+width: 90px; height: 90px; border-radius: 50%;
+background: #ef4444; color: white; font-weight: 800; font-size: 1.1rem;
+border: 4px solid #b91c1c; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+cursor: pointer;
+}
+#trigger-btn:active { transform: scale(0.95); background: #dc2626; border-color: #991b1b; }
+
+.stat-row { display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #334155; font-size: 0.9rem;}
+.stat-val { font-weight: 700; color: white; }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup" class="screen">
+<div class="card">
+<h1>Range Setup</h1>
+<p class="desc">Enter <b>Shoulder Height</b> (measured exactly from the ground to the top of the shoulder joint) for stance calculation.</p>
+
+<div class="input-group">
+<label>Player Height (m)</label>
+<input type="number" id="h-in" value="1.78" step="0.01">
+</div>
+<div class="input-group">
+<label>Shoulder Height (m)</label>
+<input type="number" id="sh-in" value="1.48" step="0.01">
+</div>
+
+<button class="btn" onclick="startSim()">Engage Simulation</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord"></div>
+</div>
+
+<div id="sight-base">
+<div id="sight-wobble">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+</div>
+
+<div id="hud">
+<div class="d-pad">
+<div class="d-btn btn-up" onmousedown="startMove(0, -1)" onmouseup="stopMove()" ontouchstart="startMove(0, -1)" ontouchend="stopMove()">▲</div>
+<div class="d-btn btn-down" onmousedown="startMove(0, 1)" onmouseup="stopMove()" ontouchstart="startMove(0, 1)" ontouchend="stopMove()">▼</div>
+<div class="d-btn btn-left" onmousedown="startMove(-1, 0)" onmouseup="stopMove()" ontouchstart="startMove(-1, 0)" ontouchend="stopMove()">◄</div>
+<div class="d-btn btn-right" onmousedown="startMove(1, 0)" onmouseup="stopMove()" ontouchstart="startMove(1, 0)" ontouchend="stopMove()">►</div>
+</div>
+<div class="action-pad">
+<button id="trigger-btn" onclick="fire()">SHOOT</button>
+</div>
+</div>
+</div>
+
+<div id="results" class="screen hidden">
+<div class="card">
+<span style="color:#94a3b8; font-size:0.8rem; font-weight:700;">DECIMAL SCORE</span>
+<h1 id="score-out" style="font-size:4.5rem; margin:0.5rem 0; color:white;">10.9</h1>
+
+<div class="stat-row"><span>Player Height</span> <span class="stat-val" id="res-h"></span></div>
+<div class="stat-row"><span>Shoulder Height</span> <span class="stat-val" id="res-sh"></span></div>
+<div class="stat-row"><span>View Scale</span> <span class="stat-val">10m -> 1m Angular</span></div>
+
+<button class="btn" style="margin-top:2rem;" onclick="resetSim()">NEXT SHOT</button>
+</div>
+</div>
+</div>
+
+<script>
+const state = { h: 1.78, sh: 1.48, audioCtx: null };
+
+// Sight Position State
+let sightX = 0;
+let sightY = 0;
+let moveInterval = null;
+const sightBase = document.getElementById('sight-base');
+
+function initAudio() {
+if (!state.audioCtx) state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(freq, type, dur, vol) {
+if(!state.audioCtx) return;
+const osc = state.audioCtx.createOscillator();
+const gain = state.audioCtx.createGain();
+osc.type = type;
+osc.frequency.setValueAtTime(freq, state.audioCtx.currentTime);
+gain.gain.setValueAtTime(vol, state.audioCtx.currentTime);
+gain.gain.exponentialRampToValueAtTime(0.01, state.audioCtx.currentTime + dur);
+osc.connect(gain);
+gain.connect(state.audioCtx.destination);
+osc.start();
+osc.stop(state.audioCtx.currentTime + dur);
+}
+
+// Joystick Movement Logic
+function startMove(dx, dy) {
+if(moveInterval) clearInterval(moveInterval);
+// Move sight continuously while button held
+moveInterval = setInterval(() => {
+sightX += dx * 1.5; // Movement speed
+sightY += dy * 1.5;
+updateSightPosition();
+}, 16); // ~60fps
+}
+
+function stopMove() {
+if(moveInterval) clearInterval(moveInterval);
+}
+
+function updateSightPosition() {
+sightBase.style.transform = `translate(${sightX}px, ${sightY}px)`;
+}
+
+function startSim() {
+initAudio();
+state.h = parseFloat(document.getElementById('h-in').value);
+state.sh = parseFloat(document.getElementById('sh-in').value);
+
+// Stance/Stability modifier based on shoulder height
+// Standard expected shoulder height is roughly 1.45m
+let heightDiff = state.sh - 1.45;
+
+// Adjust the natural baseline target position slightly based on height
+const targetMaster = document.getElementById('target-master');
+targetMaster.style.transform = `translateY(${heightDiff * -20}px)`;
+
+// Adjust wobble magnitude (taller = slightly more lever arm wobble)
+let sway = 3 + (state.sh * 0.5);
+document.documentElement.style.setProperty('--sway-amp', sway + 'px');
+
+// Reset sight to center
+sightX = 0; sightY = 0;
+updateSightPosition();
+
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+}
+
+function fire() {
+playSound(200, 'square', 0.08, 0.2); // Trigger snap
+
+setTimeout(() => {
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const master = document.getElementById('target-master');
+const mRect = master.getBoundingClientRect();
+
+// 1cm = 37.8px.
+// Pellet drop at 10m is 1.9cm real life.
+// Scaled down visually by 10 (10m to 1m feel), visual drop is 0.19cm
+const visualDropPx = 0.19 * 37.8;
+
+const hitX = tip.left + (tip.width/2);
+const hitY = tip.top + visualDropPx;
+
+// Draw visual hole on the tiny target
+const hole = document.createElement('div');
+hole.className = 'hole';
+hole.style.left = (hitX - mRect.left) + 'px';
+hole.style.top = (hitY - mRect.top) + 'px';
+master.appendChild(hole);
+
+// Scoring calculation (Linear to actual millimeters)
+// Real life ISSF: Center to 10-ring edge is 5.75mm (0.575cm)
+// Visual scale (1/10th): Center to 10-ring edge is 0.0575cm.
+// 0.0575cm * 37.8px/cm = ~2.17px is the edge of a 10.0 score.
+
+const distPx = Math.hypot(hitX - bull.left, hitY - bull.top);
+const distCm = distPx / 37.8;
+
+// Standard ISSF Scoring: 10.9 max. Score drops by 1 point per 8mm (0.8cm) real life.
+// Visual scale: drops by 1 point per 0.08cm.
+let score = 11.0 - (distCm / 0.08);
+if (score > 10.9) score = 10.9;
+if (score < 0) score = 0;
+
+playSound(900, 'triangle', 0.1, 0.15); // Impact ting
+
+setTimeout(() => {
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('results').classList.remove('hidden');
+document.getElementById('score-out').innerText = score.toFixed(1);
+document.getElementById('res-h').innerText = state.h.toFixed(2) + "m";
+document.getElementById('res-sh').innerText = state.sh.toFixed(2) + "m";
+}, 1000);
+}, 65); // ~65ms flight time
+}
+
+function resetSim() {
+document.getElementById('results').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+document.querySelectorAll('.hole').forEach(h => h.remove());
+}
+
+// Prevent context menu on long press for joystick buttons
+document.querySelectorAll('.d-btn').forEach(btn => {
+btn.addEventListener('contextmenu', e => e.preventDefault());
+});
+</script>
+</body>
+</html>
+

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ISSF Elite Air Pistol Sim</title>
+<style>
+:root {
+--primary: #0ea5e9;
+--accent: #10b981;
+--danger: #ef4444;
+--bg: #09090b;
+--panel: rgba(24, 24, 27, 0.9);
+--target-card: calc(1.70 * 37.8px);
+--target-black: calc(0.59 * 37.8px);
+--target-10ring: calc(0.12 * 37.8px);
+--sway-amp: 4px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; user-select: none; }
+body { background: var(--bg); color: #f8fafc; height: 100vh; overflow: hidden; touch-action: none; }
+
+.screen {
+position: fixed; inset: 0; z-index: 100;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle at center, #27272a 0%, #09090b 100%);
+backdrop-filter: blur(12px); transition: opacity 0.3s;
+}
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel); padding: 2.5rem; border-radius: 1.5rem;
+border: 1px solid rgba(255,255,255,0.05); width: 90%; max-width: 450px;
+box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); text-align: center;
+}
+
+h1 { font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;}
+.highlight { color: var(--primary); }
+
+.input-group { text-align: left; margin-bottom: 1rem; }
+label { display: block; font-size: 0.7rem; font-weight: 700; color: #71717a; margin-bottom: 0.4rem; text-transform: uppercase; }
+input {
+width: 100%; background: #18181b; border: 1px solid #3f3f46;
+color: white; padding: 0.8rem; border-radius: 0.5rem; font-weight: bold;
+}
+
+.btn {
+background: linear-gradient(135deg, var(--primary), #0284c7); color: white; border: none;
+padding: 1rem; border-radius: 0.5rem; font-weight: 800; cursor: pointer; width: 100%;
+text-transform: uppercase; letter-spacing: 1px; margin-top: 10px;
+}
+.btn-green { background: linear-gradient(135deg, var(--accent), #059669); }
+
+/* Viewport */
+#viewport {
+position: relative; width: 100vw; height: 100vh;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle, #cbd5e1 0%, #64748b 100%);
+}
+
+#target-master {
+position: absolute; width: var(--target-card); height: var(--target-card);
+background: #fafafa; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+display: flex; align-items: center; justify-content: center;
+}
+.ring-black { position: absolute; border-radius: 50%; width: var(--target-black); height: var(--target-black); background: #111; }
+.ring-10 { position: absolute; border-radius: 50%; width: var(--target-10ring); height: var(--target-10ring); border: 0.5px solid rgba(255,255,255,0.7); }
+#bullseye-coord { position: absolute; width: 1px; height: 1px; }
+
+/* Sights */
+#sight-base { position: absolute; top: 50%; left: 50%; z-index: 10; pointer-events: none;}
+#sight-wobble {
+position: absolute; top: 0; left: 0; width: 100px; height: 100px;
+transform: translate(-50%, -50%);
+animation: hand-shake 3.5s infinite ease-in-out alternate;
+}
+@keyframes hand-shake {
+0% { transform: translate(calc(-50% + var(--sway-amp)), calc(-50% - var(--sway-amp))); }
+50% { transform: translate(calc(-50% - var(--sway-amp)*1.2), calc(-50% + var(--sway-amp)*1.5)); }
+100% { transform: translate(calc(-50% + var(--sway-amp)), calc(-50% - var(--sway-amp))); }
+}
+.front-i { position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%); width: 14px; height: 45px; background: #111; border-top: 2px solid #52525b; }
+.rear-u { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 66px; height: 45px; border-left: 22px solid #000; border-right: 22px solid #000; border-bottom: 22px solid #000; }
+#aim-tip { position: absolute; top: 0; left: 50%; }
+
+/* HUD */
+#hud { position: absolute; inset: 0; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-end; padding: 2rem; z-index: 50; }
+.match-stats {
+position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+background: rgba(0,0,0,0.8); padding: 0.6rem 1.5rem; border-radius: 0.5rem;
+color: white; font-family: monospace; border: 1px solid #3f3f46;
+display: flex; gap: 20px; align-items: center;
+}
+.timer-box { color: var(--danger); font-weight: bold; min-width: 60px; text-align: center;}
+
+.d-pad { pointer-events: auto; position: relative; width: 140px; height: 140px; background: rgba(24,24,27,0.8); border-radius: 50%; border: 2px solid #3f3f46; }
+.d-btn { position: absolute; width: 44px; height: 44px; background: #3f3f46; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; }
+.btn-up { top: 4px; left: 48px; } .btn-down { bottom: 4px; left: 48px; }
+.btn-left { top: 48px; left: 4px; } .btn-right { top: 48px; right: 4px; }
+
+#trigger-btn { width: 100px; height: 100px; border-radius: 50%; background: #ef4444; border: 4px solid #7f1d1d; color: #fff; font-weight: 900; pointer-events: auto; cursor: pointer;}
+#trigger-btn:disabled { background: #451a1a; border-color: #2b0c0c; opacity: 0.5; cursor: not-allowed; }
+
+/* Analysis */
+.target-3d-wrapper { perspective: 1000px; width: 220px; height: 220px; margin: 0 auto 1.5rem; }
+.target-3d { width: 100%; height: 100%; position: relative; border-radius: 50%; background: #fff; transform: rotateX(15deg) rotateY(-10deg); box-shadow: -10px 10px 20px rgba(0,0,0,0.5); transform-style: preserve-3d; }
+.ring-3d { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid #71717a; }
+.ring-3d.black { background: #18181b; }
+.hole-3d { position: absolute; width: 12px; height: 12px; background: #000; border-radius: 50%; transform: translate(-50%, -50%); z-index: 100; box-shadow: 0 0 4px #fff;}
+.score-val { font-size: 4.5rem; font-weight: 900; line-height: 1; margin-bottom: 1rem; }
+
+.hole-tiny { position: absolute; width: 3px; height: 3px; background: #000; border-radius: 50%; transform: translate(-50%, -50%); z-index: 20; }
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup" class="screen">
+<div class="card">
+<h1>ISSF <span class="highlight">Olympic 10m</span></h1>
+<p style="font-size: 0.8rem; color: #a1a1aa; margin-bottom: 1.5rem;">Match: 60 Shots | Time: 60s per shot</p>
+<div class="input-group"><label>Shoulder Height (m)</label><input type="number" id="sh-in" value="1.48" step="0.01"></div>
+<button class="btn" onclick="initGame()">Start Match</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div class="match-stats">
+<div>Shot <span id="hud-shot">1</span>/60</div>
+<div class="timer-box" id="hud-timer">60s</div>
+<div>Score: <span id="hud-total">0.0</span></div>
+</div>
+<div id="target-master"><div class="ring-black"></div><div class="ring-10"></div><div id="bullseye-coord"></div></div>
+<div id="sight-base"><div id="sight-wobble"><div class="front-i"><div id="aim-tip"></div></div><div class="rear-u"></div></div></div>
+<div id="hud">
+<div class="d-pad">
+<div class="d-btn btn-up" onmousedown="move(0,-2)" onmouseup="stop()" ontouchstart="move(0,-2)" ontouchend="stop()">▲</div>
+<div class="d-btn btn-down" onmousedown="move(0,2)" onmouseup="stop()" ontouchstart="move(0,2)" ontouchend="stop()">▼</div>
+<div class="d-btn btn-left" onmousedown="move(-2,0)" onmouseup="stop()" ontouchstart="move(-2,0)" ontouchend="stop()">◄</div>
+<div class="d-btn btn-right" onmousedown="move(2,0)" onmouseup="stop()" ontouchstart="move(2,0)" ontouchend="stop()">►</div>
+</div>
+<button id="trigger-btn" onclick="fire()">FIRE</button>
+</div>
+</div>
+
+<div id="analysis" class="screen hidden">
+<div class="card">
+<div class="target-3d-wrapper"><div class="target-3d" id="closeup"></div></div>
+<div id="ana-status" style="font-weight: bold; color: var(--primary); margin-bottom: 0.5rem;">SHOT RECORDED</div>
+<div class="score-val" id="ana-score">10.9</div>
+<p id="ana-comment" style="font-style: italic; font-size: 0.9rem; margin-bottom: 1.5rem; color: #a1a1aa;"></p>
+<button class="btn btn-green" id="next-btn" onclick="resetForNextShot()">Continue</button>
+</div>
+</div>
+
+<div id="final" class="screen hidden">
+<div class="card">
+<h1>Match <span class="highlight">Ended</span></h1>
+<div class="score-val" id="final-score">0.0</div>
+<p id="final-stats"></p>
+<button class="btn" onclick="location.reload()">Restart</button>
+</div>
+</div>
+</div>
+
+<script>
+const state = {
+sh: 1.48, audio: null,
+shot: 1, total: 0,
+timeLeft: 60, timerInt: null,
+sightX: 0, sightY: 0, moveInt: null
+};
+
+function initGame() {
+state.sh = parseFloat(document.getElementById('sh-in').value);
+state.audio = new (window.AudioContext || window.webkitAudioContext)();
+
+// Calibrate sway
+let sway = 3 + (state.sh * 0.5);
+document.documentElement.style.setProperty('--sway-amp', sway + 'px');
+
+build3D();
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+startTimer();
+}
+
+function startTimer() {
+state.timeLeft = 60;
+document.getElementById('hud-timer').innerText = state.timeLeft + "s";
+document.getElementById('hud-timer').style.color = "var(--danger)";
+
+state.timerInt = setInterval(() => {
+state.timeLeft--;
+document.getElementById('hud-timer').innerText = state.timeLeft + "s";
+if (state.timeLeft <= 0) {
+clearInterval(state.timerInt);
+processShot(true); // Time out
+}
+}, 1000);
+}
+
+function move(dx, dy) {
+state.moveInt = setInterval(() => {
+state.sightX += dx; state.sightY += dy;
+document.getElementById('sight-base').style.transform = `translate(${state.sightX}px, ${state.sightY}px)`;
+}, 16);
+}
+function stop() { clearInterval(state.moveInt); }
+
+function fire() {
+if (state.timeLeft <= 0) return;
+beep(200, 'square', 0.1);
+clearInterval(state.timerInt);
+document.getElementById('trigger-btn').disabled = true;
+setTimeout(() => processShot(false), 100);
+}
+
+function processShot(isTimeout) {
+const anaScore = document.getElementById('ana-score');
+const anaStatus = document.getElementById('ana-status');
+let score = 0;
+let dx = 0, dy = 0;
+
+if (isTimeout) {
+score = 0;
+anaStatus.innerText = "TIME EXPIRED";
+anaStatus.style.color = "var(--danger)";
+} else {
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const mRect = document.getElementById('target-master').getBoundingClientRect();
+
+// Calc Score
+dx = (tip.left - bull.left);
+dy = (tip.top + (0.19 * 37.8)) - bull.top; // Incl pellet drop
+let distCm = Math.hypot(dx, dy) / 37.8;
+score = Math.max(0, (11.0 - (distCm / 0.08))).toFixed(1);
+
+anaStatus.innerText = "SHOT RECORDED";
+anaStatus.style.color = "var(--primary)";
+
+// Tiny hole
+const hole = document.createElement('div');
+hole.className = 'hole-tiny';
+hole.style.left = (tip.left - mRect.left) + 'px';
+hole.style.top = (tip.top + (0.19 * 37.8) - mRect.top) + 'px';
+document.getElementById('target-master').appendChild(hole);
+beep(800, 'sine', 0.1);
+}
+
+state.total += parseFloat(score);
+anaScore.innerText = score;
+document.getElementById('ana-comment').innerText = getCoach(score);
+
+// 3D Mark
+const closeup = document.getElementById('closeup');
+const oldHole = closeup.querySelector('.hole-3d');
+if(oldHole) oldHole.remove();
+
+const h3 = document.createElement('div');
+h3.className = 'hole-3d';
+h3.style.left = `calc(50% + ${(dx/30)*50}%)`;
+h3.style.top = `calc(50% + ${(dy/30)*50}%)`;
+closeup.appendChild(h3);
+
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('analysis').classList.remove('hidden');
+}
+
+function resetForNextShot() {
+if (state.shot >= 60) {
+showFinal();
+return;
+}
+state.shot++;
+state.sightX = 0; state.sightY = 0;
+document.getElementById('sight-base').style.transform = `translate(0,0)`;
+document.getElementById('hud-shot').innerText = state.shot;
+document.getElementById('hud-total').innerText = state.total.toFixed(1);
+document.getElementById('trigger-btn').disabled = false;
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+startTimer();
+}
+
+function showFinal() {
+document.getElementById('analysis').classList.add('hidden');
+document.getElementById('final').classList.remove('hidden');
+document.getElementById('final-score').innerText = state.total.toFixed(1);
+document.getElementById('final-stats').innerText = `Average: ${(state.total/60).toFixed(2)}`;
+}
+
+function build3D() {
+const c = document.getElementById('closeup');
+for(let i=1; i<=10; i++) {
+let d = 155.5 - ((i-1)*16);
+let p = (d/155.5)*100;
+let r = document.createElement('div');
+r.className = 'ring-3d' + (i >= 7 ? ' black' : '');
+r.style.width = p+'%'; r.style.height = p+'%';
+c.appendChild(r);
+}
+}
+
+function getCoach(s) {
+if(s >= 10.5) return "World class. Hold that focus.";
+if(s >= 10.0) return "Clean shot. Keep your rhythm.";
+if(s >= 9.0) return "Check your follow-through.";
+return "Breathe and reset. Don't rush the trigger.";
+}
+
+function beep(f, t, d) {
+const o = state.audio.createOscillator();
+const g = state.audio.createGain();
+o.type = t; o.frequency.value = f;
+g.gain.setValueAtTime(0.1, state.audio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.01, state.audio.currentTime + d);
+o.connect(g); g.connect(state.audio.destination);
+o.start(); o.stop(state.audio.currentTime + d);
+}
+</script>
+</body>
+</html>
+

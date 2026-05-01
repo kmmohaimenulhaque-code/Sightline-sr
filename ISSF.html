@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ISSF Precision Air Pistol Sim | Steyr LP10</title>
+<style>
+:root {
+--primary: #3b82f6;
+--bg: #0b1120;
+--panel: rgba(30, 41, 59, 0.85);
+--scale: 1.75;
+--sway-x: 8px;
+--sway-y: 6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg); color: #f1f5f9; height: 100vh; overflow: hidden; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+/* --- Screens --- */
+.screen {
+position: fixed; inset: 0; z-index: 100;
+display: flex; align-items: center; justify-content: center;
+background: radial-gradient(circle at 30% 20%, #111827 0%, #030712 100%);
+backdrop-filter: blur(2px);
+}
+
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel);
+padding: 2rem 2rem; border-radius: 2rem;
+border: 1px solid rgba(255,255,255,0.12);
+width: 90%; max-width: 460px;
+box-shadow: 0 30px 40px -12px rgba(0,0,0,0.6);
+text-align: center;
+backdrop-filter: blur(12px);
+}
+
+h1 { font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; background: linear-gradient(135deg, #60a5fa, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+p.desc { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.8rem; line-height: 1.5; }
+
+.input-group { text-align: left; margin-bottom: 1.25rem; }
+label { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.4rem; letter-spacing: 0.5px; }
+input {
+width: 100%; background: #0f172a; border: 1px solid #334155;
+color: #f1f5f9; padding: 0.8rem; border-radius: 1rem; font-size: 1rem;
+transition: all 0.2s; font-weight: 500;
+}
+input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+
+.btn {
+background: linear-gradient(95deg, #3b82f6, #2563eb);
+color: white; border: none; width: 100%;
+padding: 0.9rem; border-radius: 3rem; font-weight: 700; cursor: pointer;
+transition: transform 0.1s, opacity 0.2s; font-size: 1rem;
+}
+.btn:hover { opacity: 0.92; }
+.btn:active { transform: scale(0.97); }
+
+/* --- Shooting Range --- */
+#viewport {
+position: relative; width: 100vw; height: 100vh;
+display: flex; flex-direction: column; align-items: center; justify-content: center;
+background: radial-gradient(ellipse at center, #1a2a3a 0%, #07111a 100%);
+}
+
+#target-range {
+position: relative; width: 340px; height: 340px;
+background: #cbd5e1; border-radius: 16px;
+display: flex; align-items: center; justify-content: center;
+box-shadow: inset 0 0 30px rgba(0,0,0,0.2), 0 20px 30px -8px black;
+border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* ISSF 10m Air Pistol Target (scalable) */
+#target-master {
+position: relative; width: calc(155.5mm * 1); height: calc(155.5mm * 1);
+transform: scale(var(--scale));
+background: #fff8f0; border-radius: 50%;
+box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+cursor: crosshair;
+}
+
+.ring {
+position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+border-radius: 50%; border: 0.5px solid #888;
+background: transparent;
+box-shadow: 0 0 0 0.5px rgba(0,0,0,0.1);
+}
+.ring-black { background: #111111; border-color: #222; }
+.ring-inner-white { border-color: #dddddd; background: rgba(255,255,240,0.1); }
+
+/* 10-ring inner white zone styling */
+.ring-black.ring-inner-white { background: #2a2a2a; }
+
+/* Rear & front sight assembly realistic sway */
+#sight-assembly {
+position: absolute; bottom: 12%; left: 50%;
+width: 200px; height: 130px; transform: translateX(-50%);
+pointer-events: none; z-index: 30;
+filter: drop-shadow(0 4px 6px black);
+}
+
+.sway-layer {
+animation: pro-sway 4.8s infinite cubic-bezier(0.45, 0.05, 0.55, 0.95);
+width: 100%; height: 100%; position: relative;
+}
+
+@keyframes pro-sway {
+0%, 100% { transform: translate(0px, 0px); }
+20% { transform: translate(calc(var(--sway-x) * 0.6), calc(var(--sway-y) * -0.3)); }
+45% { transform: translate(calc(var(--sway-x) * -0.5), calc(var(--sway-y) * 0.8)); }
+70% { transform: translate(calc(var(--sway-x) * 0.3), calc(var(--sway-y) * -0.9)); }
+85% { transform: translate(calc(var(--sway-x) * -0.2), calc(var(--sway-y) * 0.5)); }
+}
+
+.rear-u {
+position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+width: 130px; height: 74px;
+border-left: 44px solid #111; border-right: 44px solid #111; border-bottom: 38px solid #111;
+border-radius: 0 0 8px 8px;
+background: transparent;
+}
+.front-i {
+position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+width: 28px; height: 98px; background: #0a0a0a;
+border-radius: 2px;
+box-shadow: 0 0 0 1px #444;
+}
+#aim-tip {
+position: absolute; top: 0; left: 50%; width: 3px; height: 3px;
+background: #facc15; transform: translate(-50%, -50%); border-radius: 50%;
+box-shadow: 0 0 3px gold;
+}
+
+/* Shot hole */
+.hole {
+position: absolute; width: 7px; height: 7px; background: #1e1a15;
+border-radius: 50%; transform: translate(-50%, -50%);
+box-shadow: inset 1px 1px 0 rgba(0,0,0,0.4), 0 0 0 1px rgba(255,200,100,0.3);
+z-index: 25;
+}
+
+#trigger-btn {
+position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+padding: 1.2rem 3rem; border-radius: 4rem; background: #dc2626;
+font-size: 1.3rem; font-weight: 800; letter-spacing: 2px;
+box-shadow: 0 10px 0 #991b1b, 0 12px 30px rgba(0,0,0,0.5);
+transition: 0.05s linear;
+width: auto; min-width: 200px;
+}
+#trigger-btn:active { transform: translateX(-50%) translateY(6px); box-shadow: 0 4px 0 #991b1b; }
+
+.stat-row { display: flex; justify-content: space-between; padding: 0.7rem 0; border-bottom: 1px solid #334155; }
+.stat-val { font-weight: 800; color: #facc15; }
+
+#score-out { font-size: 4.2rem; font-weight: 800; background: linear-gradient(135deg, #ffd966, #facc15); -webkit-background-clip: text; background-clip: text; color: transparent; margin: 0.5rem 0; }
+
+@media (max-width: 600px) {
+#target-range { width: 280px; height: 280px; }
+:root { --scale: 1.4; }
+.front-i { height: 78px; width: 22px; }
+.rear-u { width: 100px; border-left: 34px solid #111; border-right: 34px solid #111; border-bottom: 30px solid #111; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup" class="screen">
+<div class="card">
+<h1>🔫 STEYR LP10 | ISSF Air Pistol</h1>
+<p class="desc">Adjust anthropometrics → affects natural sway & hold stability. <br> <strong>Shoulder length = acromion to neck base</strong></p>
+
+<div class="input-group">
+<label>📏 Height (meters)</label>
+<input type="number" id="h-in" value="1.78" step="0.01">
+</div>
+<div class="input-group">
+<label>🦾 Shoulder Length (meters)</label>
+<input type="number" id="s-in" value="0.45" step="0.01">
+</div>
+
+<button class="btn" id="initBtn">⚡ INITIALIZE RANGE</button>
+</div>
+</div>
+
+<div id="viewport" class="hidden">
+<div id="target-range">
+<div id="target-master"></div>
+</div>
+
+<div id="sight-assembly">
+<div class="sway-layer" id="sway-box">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+</div>
+
+<button id="trigger-btn" class="btn">🔫 FIRE</button>
+</div>
+
+<div id="results" class="screen hidden">
+<div class="card">
+<span style="color:#94a3b8; font-weight:600;">🎯 MATCH SCORE</span>
+<h1 id="score-out">10.9</h1>
+
+<div class="stat-row"><span>📏 Height</span> <span class="stat-val" id="res-h"></span></div>
+<div class="stat-row"><span>🦾 Shoulder</span> <span class="stat-val" id="res-s"></span></div>
+<div class="stat-row"><span>⚡ Muzzle Velocity</span> <span class="stat-val">523 fps (160 m/s)</span></div>
+<div class="stat-row"><span>🎯 Hold Factor</span> <span class="stat-val" id="stab-val"></span></div>
+
+<button class="btn" style="margin-top:2rem;" id="nextBtn">🔄 NEXT SHOT</button>
+</div>
+</div>
+</div>
+
+<script>
+// ---------- STATE & DOM ----------
+const state = {
+h: 1.78,
+s: 0.45,
+audioCtx: null,
+targetBuilt: false,
+impactPending: false
+};
+
+// ----- Audio initialization (user gesture safe) -----
+function initAudio() {
+if (!state.audioCtx) {
+try {
+state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// suspend until first fire, but we'll resume on fire
+} catch(e) { console.warn("Web Audio not supported"); }
+}
+// resume on user click later
+}
+
+function resumeAudioOnFirstFire() {
+if (state.audioCtx && state.audioCtx.state === 'suspended') {
+state.audioCtx.resume();
+}
+}
+
+function playSound(freq, type, dur, vol) {
+if (!state.audioCtx) return;
+try {
+const now = state.audioCtx.currentTime;
+const osc = state.audioCtx.createOscillator();
+const gain = state.audioCtx.createGain();
+osc.type = type;
+osc.frequency.setValueAtTime(freq, now);
+gain.gain.setValueAtTime(vol, now);
+gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+osc.connect(gain);
+gain.connect(state.audioCtx.destination);
+osc.start();
+osc.stop(now + dur);
+} catch(e) { /* silent fail */ }
+}
+
+// ----- Build ISSF target rings (complete correction) -----
+function buildTargetRings() {
+const master = document.getElementById('target-master');
+if (!master) return;
+master.innerHTML = ''; // clear
+// Create a wrapper for absolute positioning for bullseye coordinate reference
+const bullMarker = document.createElement('div');
+bullMarker.id = 'bullseye-coord';
+bullMarker.style.position = 'absolute';
+bullMarker.style.top = '50%';
+bullMarker.style.left = '50%';
+bullMarker.style.width = '0px';
+bullMarker.style.height = '0px';
+bullMarker.style.pointerEvents = 'none';
+master.appendChild(bullMarker);
+
+// Ring diameters (mm) for 10m Air Pistol official: 10 zones
+const ringDiameters = [155.5, 139.5, 123.5, 107.5, 91.5, 75.5, 59.5, 43.5, 27.5, 11.5];
+// Colors: #1 (10 ring) inner 10 zones: official black from 6th ring (59.5mm & below are black)
+ringDiameters.forEach((diam, idx) => {
+const ringDiv = document.createElement('div');
+ringDiv.className = 'ring';
+// ring index 0 = outer most (value 1), 9 = inner 10.9 zone (11.5mm)
+const ringNumber = 10 - idx; // 10 to 1
+// ISSF: The 8,9,10 ring are normally black? Actually air pistol: 6th ring (59.5mm) and inner are black.
+if (idx >= 6) { // 59.5mm, 43.5, 27.5, 11.5 rings
+ringDiv.classList.add('ring-black');
+if (idx >= 7) ringDiv.classList.add('ring-inner-white'); // inner white marking
+}
+ringDiv.style.width = diam + 'mm';
+ringDiv.style.height = diam + 'mm';
+ringDiv.style.borderWidth = idx === 9 ? '0.3px' : '0.6px';
+master.appendChild(ringDiv);
+});
+
+// Additional visual center dot for aiming reference
+const centerDot = document.createElement('div');
+centerDot.style.position = 'absolute';
+centerDot.style.top = '50%';
+centerDot.style.left = '50%';
+centerDot.style.transform = 'translate(-50%, -50%)';
+centerDot.style.width = '2.5mm';
+centerDot.style.height = '2.5mm';
+centerDot.style.backgroundColor = '#222';
+centerDot.style.borderRadius = '50%';
+centerDot.style.opacity = '0.65';
+centerDot.style.pointerEvents = 'none';
+master.appendChild(centerDot);
+}
+
+// ---- sway update based on shoulder length & height (biomechanics) ----
+function updateSwayParameters() {
+const shoulder = parseFloat(state.s);
+const height = parseFloat(state.h);
+// stability factor: longer shoulder length → better leverage but increased arc? Actually in pistol, larger shoulder length can increase stability if fitted.
+// inverse: short shoulder creates higher sway amplitude. Use realistic curve.
+let baseSwayX = 9.5; // px max
+let baseSwayY = 7.2;
+// Normalize: shoulder average ~0.45m; lower shoulder -> more instability
+let stability = Math.min(1.6, Math.max(0.65, 0.45 / (shoulder + 0.03)));
+if (height > 1.85) stability *= 1.08;
+if (height < 1.65) stability *= 0.92;
+
+const finalSwayX = Math.min(15, baseSwayX * stability);
+const finalSwayY = Math.min(12, baseSwayY * stability);
+document.documentElement.style.setProperty('--sway-x', finalSwayX + 'px');
+document.documentElement.style.setProperty('--sway-y', finalSwayY + 'px');
+return stability;
+}
+
+// ---- Scoring: convert impact point (px) to decimal score ----
+function computeScoreFromImpact(hitXpx, hitYpx, bullXpx, bullYpx, targetScale) {
+// distances in pixels
+const deltaX = hitXpx - bullXpx;
+const deltaY = hitYpx - bullYpx;
+const distPx = Math.hypot(deltaX, deltaY);
+// convert px to mm based on CSS scale & reference: 155.5mm target diameter in real world = actual width in pixels of #target-master.
+const targetMaster = document.getElementById('target-master');
+const rectMaster = targetMaster.getBoundingClientRect();
+const targetDiameterPx = rectMaster.width; // width in px (scaled by CSS)
+const realTargetMM = 155.5; // full target diameter mm
+const mmPerPixel = realTargetMM / targetDiameterPx;
+const distanceMM = distPx * mmPerPixel;
+
+// ISSF 10m air pistol: 10 ring = 11.5mm diameter (radius 5.75mm), each ring spacing 8mm to outer edge.
+// Inner 10.9 = 5.0mm radius? Actually formula: 10.9 = center < 0.5mm? we implement official logic:
+// maximum score 10.9, each 0.1 point = 0.4mm from center. Better logic: 10.9 requires dist < 0.5mm, else linear drop within ring boundaries.
+// Implementation: 10-ring radius = 5.75mm. Score = 10.0 - ((distMM - 5.75)/8) but we want up to 10.9.
+let score = 0;
+if (distanceMM <= 5.75) {
+// inside 10 ring: superfine decimal: distance 0mm = 10.9, 5.75mm = 10.0
+// formula 10.9 - (distanceMM / 5.75) * 0.9
+score = 10.9 - (distanceMM / 5.75) * 0.9;
+if (score < 10.0) score = 10.0;
+} else {
+// outer rings from 9 to 1: each full ring 8mm wide, decrease by 1 point per 8mm
+const ringScore = 10 - ((distanceMM - 5.75) / 8);
+score = Math.max(0, Math.min(9.9, ringScore));
+}
+return Math.min(10.9, Math.max(0, score));
+}
+
+// ----- Main Fire Logic (with realistic pellet drop + sway capture)
+async function fireShot() {
+if (state.impactPending) return; // avoid double fire
+state.impactPending = true;
+
+// Ensure audio context active
+if (state.audioCtx && state.audioCtx.state === 'suspended') {
+await state.audioCtx.resume();
+}
+// dry click / hammer sound
+playSound(280, 'triangle', 0.08, 0.25);
+
+// capture sway element and aiming tip position at exact trigger pull moment
+const aimTipElem = document.getElementById('aim-tip');
+const bullMarker = document.getElementById('bullseye-coord');
+if (!aimTipElem || !bullMarker) {
+state.impactPending = false;
+return;
+}
+
+const tipRect = aimTipElem.getBoundingClientRect();
+const bullRect = bullMarker.getBoundingClientRect();
+const targetMasterElem = document.getElementById('target-master');
+const masterRect = targetMasterElem.getBoundingClientRect();
+
+// Aiming point center
+const aimCenterX = tipRect.left + tipRect.width / 2;
+const aimCenterY = tipRect.top + tipRect.height / 2;
+const bullCenterX = bullRect.left + bullRect.width / 2;
+const bullCenterY = bullRect.top + bullRect.height / 2;
+
+// Pellet drop effect: 1.9 cm drop at 10m for 160 m/s ( about 1.9 cm ) = 19mm downward
+const dropMM = 19;
+const targetMasterWidthPx = masterRect.width;
+const realWidthMM = 155.5;
+const dropPx = (dropMM / realWidthMM) * targetMasterWidthPx;
+
+const impactX = aimCenterX;
+const impactY = aimCenterY + dropPx;
+
+// Ensure impact inside target area
+const finalImpactX = Math.min(masterRect.right - 2, Math.max(masterRect.left + 2, impactX));
+const finalImpactY = Math.min(masterRect.bottom - 2, Math.max(masterRect.top + 2, impactY));
+
+// Score calculation
+const targetScale = 1; // computed mm per pixel inside function based on live rect
+let finalScore = computeScoreFromImpact(finalImpactX, finalImpactY, bullCenterX, bullCenterY, targetScale);
+finalScore = Math.round(finalScore * 10) / 10;
+
+// Show hole on target
+const hole = document.createElement('div');
+hole.className = 'hole';
+const relativeLeft = finalImpactX - masterRect.left;
+const relativeTop = finalImpactY - masterRect.top;
+hole.style.left = relativeLeft + 'px';
+hole.style.top = relativeTop + 'px';
+targetMasterElem.appendChild(hole);
+
+// impact sound
+playSound(920, 'sine', 0.2, 0.18);
+
+// store shot result
+state.lastScore = finalScore;
+
+// Delay transition to result screen
+setTimeout(() => {
+// update results UI
+document.getElementById('score-out').innerText = finalScore.toFixed(1);
+document.getElementById('res-h').innerText = parseFloat(state.h).toFixed(2) + " m";
+document.getElementById('res-s').innerText = parseFloat(state.s).toFixed(2) + " m";
+const stabilityVal = updateSwayParameters();
+document.getElementById('stab-val').innerText = stabilityVal.toFixed(2) + " (sway coefficient)";
+// hide viewport, show results
+document.getElementById('viewport').classList.add('hidden');
+document.getElementById('results').classList.remove('hidden');
+state.impactPending = false;
+}, 120);
+}
+
+// ---- Reset / Next shot (clear holes and keep target) ----
+function nextShot() {
+// clear all holes from target-master, preserve rings structure
+const master = document.getElementById('target-master');
+if (master) {
+const holes = master.querySelectorAll('.hole');
+holes.forEach(h => h.remove());
+}
+// hide results, show viewport again
+document.getElementById('results').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+state.impactPending = false;
+}
+
+// ---- FULL INITIALIZATION (called after setup) ----
+function initializeSimulation() {
+// read input values
+let heightVal = parseFloat(document.getElementById('h-in').value);
+let shoulderVal = parseFloat(document.getElementById('s-in').value);
+if (isNaN(heightVal)) heightVal = 1.75;
+if (isNaN(shoulderVal)) shoulderVal = 0.44;
+heightVal = Math.min(2.2, Math.max(1.2, heightVal));
+shoulderVal = Math.min(0.65, Math.max(0.28, shoulderVal));
+
+state.h = heightVal;
+state.s = shoulderVal;
+
+// build target rings fully
+buildTargetRings();
+// set sway based on biometry
+updateSwayParameters();
+
+// ensure audio on tap
+initAudio();
+
+// UI transition
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('viewport').classList.remove('hidden');
+// cleanup any leftover holes if any from previous session
+const master = document.getElementById('target-master');
+if (master) {
+const oldHoles = master.querySelectorAll('.hole');
+oldHoles.forEach(h => h.remove());
+}
+state.impactPending = false;
+}
+
+// ---- Window load binding events & safety fallback ----
+window.addEventListener('DOMContentLoaded', () => {
+// Build initial placeholder ring set in the hidden state? actually not required, but we prebuild on startSim.
+// Ensure UI bindings
+const initBtn = document.getElementById('initBtn');
+if (initBtn) initBtn.addEventListener('click', (e) => {
+e.preventDefault();
+initializeSimulation();
+});
+
+const triggerFire = document.getElementById('trigger-btn');
+if (triggerFire) triggerFire.addEventListener('click', (e) => {
+e.preventDefault();
+if (!document.getElementById('viewport').classList.contains('hidden')) {
+fireShot();
+}
+});
+
+const nextBtn = document.getElementById('nextBtn');
+if (nextBtn) nextBtn.addEventListener('click', (e) => {
+e.preventDefault();
+nextShot();
+});
+
+// pre-init audio gesture on any click on setup screen (helps autoplay)
+document.body.addEventListener('touchstart', () => {
+if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
+}, { once: true });
+document.body.addEventListener('click', () => {
+if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
+}, { once: true });
+
+// set default values reference in state
+state.h = 1.78;
+state.s = 0.45;
+});
+</script>
+</body>
+</html>
