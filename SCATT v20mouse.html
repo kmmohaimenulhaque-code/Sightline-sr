@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | Steyr LP Edition</title>
+<style>
+:root {
+--bg-main: #f4f1eb;
+--bg-grad: radial-gradient(circle at center, #fdfbf7 0%, #e8e4d9 100%);
+--panel-bg: rgba(255, 255, 255, 0.95);
+--text-dark: #1a1a1a;
+--text-muted: #666;
+--accent-sage: #2d5a27;
+--accent-terra: #b45309;
+--trace-live: #2563eb;
+--trace-history: rgba(100, 116, 139, 0.3);
+--danger: #dc2626;
+/* CHANGES MADE: Adjusted physical sizes to exact requirements and set scale to 1 for device consistency */
+--phys-card: 1.70cm;
+--phys-black: 0.59cm;
+--phys-10ring: 0.12cm;
+--target-scale: 1;
+}
+
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+background: var(--bg-main);
+color: var(--text-dark);
+min-height: 100vh;
+overflow: hidden;
+transition: overflow 0.1s;
+}
+body.game-active {
+overflow: auto;
+-webkit-overflow-scrolling: touch;
+}
+
+.screen {
+position: relative;
+min-height: 100vh;
+width: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+.hidden {
+display: none !important;
+}
+
+.card {
+background: var(--panel-bg);
+padding: 1.5rem;
+border-radius: 1rem;
+border: 1px solid #d1d5db;
+width: 95%;
+max-width: 440px;
+box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+text-align: center;
+}
+
+h1 {
+font-weight: 800;
+text-transform: uppercase;
+letter-spacing: 1px;
+color: var(--accent-sage);
+font-size: 1.2rem;
+margin-bottom: 1rem;
+}
+
+/* SCATT HUD - Fixed top bar */
+.match-stats {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+width: 100%;
+background: #000;
+color: #0f0;
+padding: 10px 16px;
+display: flex;
+justify-content: space-between;
+font-family: monospace;
+font-size: 0.9rem;
+z-index: 100;
+letter-spacing: 0.5px;
+}
+
+/* Scrollable game container */
+#game-scroll {
+display: none;
+flex-direction: column;
+min-height: 100vh;
+padding-top: 44px;
+padding-bottom: 180px;
+}
+#game-scroll.active {
+display: flex;
+}
+
+/* Target section */
+#target-section {
+position: relative;
+min-height: calc(100vh - 44px - 180px);
+display: flex;
+align-items: center;
+justify-content: center;
+background: var(--bg-grad);
+flex-shrink: 0;
+overflow: hidden;
+}
+
+#target-master {
+position: relative;
+width: calc(var(--phys-card) * var(--target-scale));
+height: calc(var(--phys-card) * var(--target-scale));
+background: #fff;
+display: flex;
+align-items: center;
+justify-content: center;
+border-radius: 50%;
+box-shadow: 0 0 0 1px #ccc, 0 4px 20px rgba(0, 0, 0, 0.12);
+overflow: visible;
+}
+.ring-black {
+position: absolute;
+border-radius: 50%;
+width: calc(var(--phys-black) * var(--target-scale));
+height: calc(var(--phys-black) * var(--target-scale));
+background: #000;
+}
+/* CHANGES MADE: Added CSS class for the 10-Ring (Red Area) */
+.ring-10 {
+position: absolute;
+border-radius: 50%;
+width: calc(var(--phys-10ring) * var(--target-scale));
+height: calc(var(--phys-10ring) * var(--target-scale));
+background: var(--danger);
+}
+
+#bullseye-coord {
+position: absolute;
+left: 50%;
+top: 50%;
+width: 0;
+height: 0;
+transform: translate(-50%, -50%);
+pointer-events: none;
+}
+
+#live-trace-canvas {
+position: absolute;
+inset: 0;
+pointer-events: none;
+z-index: 5;
+opacity: 0.75;
+}
+
+/* SIGHTS */
+#sight-base {
+position: absolute;
+top: 50%;
+left: 50%;
+z-index: 10;
+pointer-events: none;
+transition: none;
+will-change: transform;
+}
+.front-i {
+position: absolute;
+bottom: 50%;
+left: 50%;
+transform: translateX(-50%);
+width: 12px;
+height: 40px;
+background: #000;
+border-top: 2px solid #444;
+}
+.rear-u {
+position: absolute;
+bottom: 8px;
+left: 50%;
+transform: translateX(-50%);
+width: 60px;
+height: 40px;
+border-left: 20px solid #000;
+border-right: 20px solid #000;
+border-bottom: 20px solid #000;
+}
+#aim-tip {
+position: absolute;
+top: 0;
+left: 50%;
+width: 4px;
+height: 4px;
+background: red;
+border-radius: 50%;
+transform: translate(-50%, -50%);
+}
+
+/* ANALYSIS SECTION */
+#analysis-section {
+background: #f4f1eb;
+padding: 1rem;
+flex-shrink: 0;
+min-height: 50vh;
+}
+#analysis-section .card {
+margin: 0 auto;
+max-width: 440px;
+}
+#analysis-placeholder {
+color: var(--text-muted);
+font-size: 0.85rem;
+padding: 2rem 0;
+text-align: center;
+}
+#analysis-content {
+display: none;
+}
+#analysis-content.visible {
+display: block;
+}
+
+.aggregate-board {
+background: #111;
+color: #eee;
+padding: 10px;
+border-radius: 6px;
+margin: 10px 0;
+text-align: left;
+}
+.aggregate-board .board-title {
+display: flex;
+justify-content: space-between;
+font-size: 0.6rem;
+font-weight: bold;
+margin-bottom: 8px;
+letter-spacing: 0.5px;
+}
+.aggregate-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 8px;
+}
+.aggregate-item {
+background: #222;
+padding: 8px;
+border-radius: 4px;
+border-left: 3px solid var(--accent-terra);
+}
+.aggregate-item.full-width {
+grid-column: 1 / -1;
+border-left-color: var(--accent-sage);
+}
+.aggregate-item label {
+display: block;
+font-size: 0.6rem;
+color: #888;
+text-transform: uppercase;
+}
+.aggregate-item span {
+font-family: monospace;
+font-size: 1rem;
+font-weight: bold;
+color: #fff;
+}
+.coach-line {
+margin-top: 10px;
+padding: 8px 10px;
+border-left: 3px solid var(--accent-sage);
+background: rgba(45, 90, 39, 0.08);
+border-radius: 4px;
+font-size: 0.85rem;
+line-height: 1.45;
+color: #2f3b2b;
+}
+
+.target-paper {
+background: #f8f4ec;
+color: #1f1f1f;
+padding: 10px;
+border-radius: 6px;
+margin: 10px 0;
+border: 1px solid #d8ccb7;
+text-align: left;
+}
+.target-paper .paper-title {
+display: flex;
+justify-content: space-between;
+font-size: 0.6rem;
+font-weight: bold;
+letter-spacing: 0.5px;
+margin-bottom: 6px;
+}
+.target-paper .paper-subtitle {
+font-size: 0.72rem;
+color: #666;
+margin-bottom: 8px;
+}
+.target-paper .paper-row {
+background: #fff;
+border: 1px solid #e8dfcf;
+border-radius: 4px;
+padding: 7px 8px;
+margin-top: 6px;
+font-size: 0.78rem;
+line-height: 1.35;
+}
+.target-paper .paper-row strong {
+color: var(--accent-sage);
+}
+
+.scatt-monitor {
+background: #111;
+color: #eee;
+padding: 10px;
+border-radius: 6px;
+margin: 10px 0;
+text-align: left;
+}
+#trace-canvas {
+background: #1a1a1a;
+width: 100%;
+height: 220px;
+border-radius: 4px;
+margin-top: 5px;
+display: block;
+}
+
+.stat-row {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 8px;
+margin-top: 8px;
+}
+.stat-item {
+background: #222;
+padding: 8px;
+border-radius: 4px;
+border-left: 3px solid var(--accent-sage);
+}
+/* CHANGES MADE: Style adjustment to handle the 5th stat cleanly */
+.stat-item.full-width {
+grid-column: 1 / -1;
+border-left-color: var(--accent-terra);
+}
+.stat-item label {
+display: block;
+font-size: 0.6rem;
+color: #888;
+text-transform: uppercase;
+}
+.stat-item span {
+font-family: monospace;
+font-size: 1rem;
+font-weight: bold;
+color: #fff;
+}
+
+.btn {
+background: var(--accent-sage);
+color: white;
+border: none;
+padding: 0.8rem;
+border-radius: 0.5rem;
+font-weight: bold;
+cursor: pointer;
+width: 100%;
+margin-top: 10px;
+font-size: 0.95rem;
+transition: background 0.2s, transform 0.1s;
+-webkit-tap-highlight-color: transparent;
+}
+.btn:active {
+background: #1e3d1a;
+transform: scale(0.97);
+}
+.btn-dark {
+background: #111;
+color: #eee;
+}
+.btn-dark:active {
+background: #000;
+transform: scale(0.97);
+}
+
+/* Fixed bottom controls */
+#controls {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+width: 100%;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 15px 20px 25px;
+z-index: 70;
+background: linear-gradient(to top, rgba(244, 241, 235, 0.98) 60%, rgba(244, 241, 235, 0));
+pointer-events: none;
+}
+#controls>* {
+pointer-events: auto;
+}
+.d-pad {
+width: 120px;
+height: 120px;
+background: rgba(255, 255, 255, 0.85);
+border-radius: 50%;
+position: relative;
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+-webkit-tap-highlight-color: transparent;
+}
+.d-btn {
+position: absolute;
+width: 42px;
+height: 42px;
+background: #fff;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+cursor: pointer;
+border: 1px solid #ccc;
+font-weight: bold;
+font-size: 1rem;
+user-select: none;
+-webkit-user-select: none;
+-webkit-tap-highlight-color: transparent;
+transition: background 0.1s;
+touch-action: manipulation;
+}
+.d-btn:active {
+background: #e5e7eb;
+}
+.btn-up {
+top: 0;
+left: 39px;
+}
+.btn-down {
+bottom: 0;
+left: 39px;
+}
+.btn-left {
+top: 39px;
+left: 0;
+}
+.btn-right {
+top: 39px;
+right: 0;
+}
+.d-center {
+position: absolute;
+top: 39px;
+left: 39px;
+width: 42px;
+height: 42px;
+background: #ddd;
+border-radius: 50%;
+}
+
+#fire-btn {
+width: 80px;
+height: 80px;
+border-radius: 50%;
+background: var(--danger);
+color: white;
+border: 4px solid #fff;
+font-weight: 900;
+font-size: 0.85rem;
+cursor: pointer;
+box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+-webkit-tap-highlight-color: transparent;
+transition: transform 0.08s, box-shadow 0.08s;
+touch-action: manipulation;
+user-select: none;
+-webkit-user-select: none;
+}
+#fire-btn:active {
+transform: scale(0.9);
+box-shadow: 0 2px 8px rgba(220, 38, 38, 0.5);
+}
+
+/* Scroll hint */
+#scroll-hint {
+position: absolute;
+bottom: 12px;
+left: 50%;
+transform: translateX(-50%);
+z-index: 20;
+color: #999;
+font-size: 0.7rem;
+text-align: center;
+pointer-events: none;
+animation: bounce-down 2s ease-in-out infinite;
+letter-spacing: 1px;
+}
+@keyframes bounce-down {
+0%,
+100% {
+transform: translateX(-50%) translateY(0);
+opacity: 0.5;
+}
+50% {
+transform: translateX(-50%) translateY(8px);
+opacity: 1;
+}
+}
+#scroll-hint.hidden-hint {
+opacity: 0;
+animation: none;
+}
+
+@media (max-width: 400px) {
+.d-pad {
+width: 100px;
+height: 100px;
+}
+.d-btn {
+width: 36px;
+height: 36px;
+}
+.btn-up {
+top: 0;
+left: 32px;
+}
+.btn-down {
+bottom: 0;
+left: 32px;
+}
+.btn-left {
+top: 32px;
+left: 0;
+}
+.btn-right {
+top: 32px;
+right: 0;
+}
+.d-center {
+top: 32px;
+left: 32px;
+width: 36px;
+height: 36px;
+}
+#fire-btn {
+width: 68px;
+height: 68px;
+font-size: 0.75rem;
+}
+#controls {
+padding: 10px 15px 20px;
+}
+#game-scroll {
+padding-bottom: 155px;
+}
+#target-section {
+min-height: calc(100vh - 44px - 155px);
+}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+<div id="setup" class="screen">
+<div class="card">
+<h1>SCATT Professional</h1>
+<p style="font-size: 0.8rem; margin-bottom: 1.5rem;">Electronic Training System | 10m Air Pistol</p>
+<button class="btn" id="start-btn">START TRAINING SESSION</button>
+</div>
+</div>
+
+<div id="game-scroll">
+<div class="match-stats" id="match-stats-bar">
+<div>SHOT: <span id="hud-shot">1</span>/60</div>
+<div id="hud-timer">0.00</div>
+<div style="color: #fbbf24">LAST: <span id="hud-last">-</span></div>
+</div>
+
+<div id="target-section">
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord"></div>
+</div>
+<canvas id="live-trace-canvas"></canvas>
+<div id="sight-base">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+<div id="scroll-hint">▼ SCROLL FOR ANALYSIS ▼</div>
+</div>
+
+<div id="analysis-section">
+<div class="card">
+<div id="analysis-placeholder">
+<p>🎯 Aim steady and fire your first shot.</p>
+<p style="font-size:0.7rem;color:#999;">Analysis will appear here.</p>
+</div>
+<div id="analysis-content">
+<div style="font-size: 0.8rem; color: var(--text-muted);">SHOT RESULT</div>
+<div style="font-size: 3rem; font-weight: 900; color: var(--accent-sage);" id="ana-score">10.6</div>
+
+<div class="aggregate-board">
+<div class="board-title">
+<span>AGGREGATE SCORING BOARD</span>
+<span>SESSION</span>
+</div>
+<div class="aggregate-grid">
+<div class="aggregate-item"><label>Shots Fired</label><span id="agg-count">0</span></div>
+<div class="aggregate-item"><label>Total Score</label><span id="agg-total">0.0</span></div>
+<div class="aggregate-item"><label>Average</label><span id="agg-avg">0.00</span></div>
+<div class="aggregate-item"><label>Best Shot</label><span id="agg-best">0.0</span></div>
+</div>
+</div>
+
+<div class="coach-line" id="coach-line">Coach: settle the sight picture and break the shot cleanly.</div>
+
+<div class="target-paper">
+<div class="paper-title">
+<span>TARGET PAPER</span>
+<span>10m / 1m VIEW SCALE</span>
+</div>
+<div class="paper-subtitle">How the target feels at 10m, scaled to a 1-meter viewing distance.</div>
+<div class="paper-row"><strong>Target Card:</strong> ~1.70 cm</div>
+<div class="paper-row"><strong>Black Area:</strong> ~0.59 cm</div>
+<div class="paper-row"><strong>Red Area / 10-Ring:</strong> ~0.12 cm</div>
+<div class="paper-row"><strong>10 Ring:</strong> 11.5 mm ± 0.1 mm</div>
+<div class="paper-row"><strong>9 Ring:</strong> 27.5 mm ± 0.2 mm</div>
+<div class="paper-row"><strong>8 Ring:</strong> 43.5 mm ± 0.2 mm</div>
+<div class="paper-row"><strong>7 Ring:</strong> 59.5 mm ± 0.5 mm</div>
+<div class="paper-row"><strong>Inner Ten:</strong> 5.0 mm ± 0.1 mm</div>
+</div>
+
+<div class="scatt-monitor">
+<div style="display: flex; justify-content: space-between; font-size: 0.6rem; font-weight: bold;">
+<span>2D MUZZLE TRACE (OVERLAY)</span>
+<span style="color: var(--accent-terra)">ORANGE = CURRENT SHOT</span>
+</div>
+<canvas id="trace-canvas"></canvas>
+
+<div class="stat-row">
+<div class="stat-item"><label>Hold Stability</label><span id="sc-hold">92%</span></div>
+<div class="stat-item"><label>Realization</label><span id="sc-real">88%</span></div>
+<div class="stat-item"><label>Hold Time</label><span id="sc-time">4.2s</span></div>
+<div class="stat-item"><label>Distance (mm)</label><span id="sc-dist">1.2</span></div>
+<div class="stat-item full-width"><label>Pellet Drop @ 10m</label><span id="sc-drop">1.95 cm</span></div>
+</div>
+</div>
+
+<button class="btn btn-dark" id="continue-btn">CONTINUE SERIES</button>
+</div>
+</div>
+</div>
+</div>
+
+<div id="controls" class="hidden">
+<div class="d-pad" id="dpad">
+<div class="d-btn btn-up" data-dx="0" data-dy="-2">↑</div>
+<div class="d-btn btn-down" data-dx="0" data-dy="2">↓</div>
+<div class="d-btn btn-left" data-dx="-2" data-dy="0">←</div>
+<div class="d-btn btn-right" data-dx="2" data-dy="0">→</div>
+<div class="d-center"></div>
+</div>
+<button id="fire-btn">SHOT</button>
+</div>
+</div>
+
+<script>
+(function() {
+// ──────────────────────────────────────
+// SOUND ENGINE (Web Audio API)
+// ──────────────────────────────────────
+let audioCtx = null;
+
+function ensureAudioContext() {
+if (!audioCtx) {
+audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+}
+if (audioCtx.state === 'suspended') {
+audioCtx.resume();
+}
+return audioCtx;
+}
+
+function playClickSound() {
+try {
+const ctx = ensureAudioContext();
+const t = ctx.currentTime;
+const osc = ctx.createOscillator();
+const gain = ctx.createGain();
+osc.type = 'sine';
+osc.frequency.setValueAtTime(800, t);
+osc.frequency.exponentialRampToValueAtTime(400, t + 0.04);
+gain.gain.setValueAtTime(0.08, t);
+gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+osc.connect(gain);
+gain.connect(ctx.destination);
+osc.start(t);
+osc.stop(t + 0.06);
+} catch (e) { /* silent */ }
+}
+
+function playShotSound() {
+try {
+const ctx = ensureAudioContext();
+const t = ctx.currentTime;
+
+// Low thump
+const oscLow = ctx.createOscillator();
+const gainLow = ctx.createGain();
+oscLow.type = 'triangle';
+oscLow.frequency.setValueAtTime(90, t);
+oscLow.frequency.exponentialRampToValueAtTime(25, t + 0.18);
+gainLow.gain.setValueAtTime(0.35, t);
+gainLow.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+oscLow.connect(gainLow);
+gainLow.connect(ctx.destination);
+oscLow.start(t);
+oscLow.stop(t + 0.22);
+
+// Noise burst (crack)
+const bufferSize = ctx.sampleRate * 0.12;
+const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+const data = noiseBuffer.getChannelData(0);
+for (let i = 0; i < bufferSize; i++) {
+data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+}
+const noise = ctx.createBufferSource();
+noise.buffer = noiseBuffer;
+const noiseGain = ctx.createGain();
+noiseGain.gain.setValueAtTime(0.25, t);
+noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+noise.connect(noiseGain);
+noiseGain.connect(ctx.destination);
+noise.start(t);
+noise.stop(t + 0.12);
+
+// High crack
+const oscHigh = ctx.createOscillator();
+const gainHigh = ctx.createGain();
+oscHigh.type = 'square';
+oscHigh.frequency.setValueAtTime(600, t);
+oscHigh.frequency.exponentialRampToValueAtTime(80, t + 0.06);
+gainHigh.gain.setValueAtTime(0.06, t);
+gainHigh.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+oscHigh.connect(gainHigh);
+gainHigh.connect(ctx.destination);
+oscHigh.start(t);
+oscHigh.stop(t + 0.08);
+} catch (e) { /* silent */ }
+}
+
+function playAnalysisRevealSound() {
+try {
+const ctx = ensureAudioContext();
+const t = ctx.currentTime;
+const osc = ctx.createOscillator();
+const gain = ctx.createGain();
+osc.type = 'sine';
+osc.frequency.setValueAtTime(500, t);
+osc.frequency.setValueAtTime(700, t + 0.06);
+osc.frequency.setValueAtTime(900, t + 0.12);
+gain.gain.setValueAtTime(0.07, t);
+gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+osc.connect(gain);
+gain.connect(ctx.destination);
+osc.start(t);
+osc.stop(t + 0.22);
+} catch (e) { /* silent */ }
+}
+
+// ──────────────────────────────────────
+// GAME STATE
+// ──────────────────────────────────────
+const state = {
+shot: 1,
+total: 0,
+shotsFired: 0,
+bestScore: 0,
+sightX: 0,
+sightY: 0,
+currentTrace: [],
+shotHistory: [],
+isFiring: false,
+startTime: 0,
+pxPerMm: 4.5,
+targetRadiusMm: 8.5,
+tenRingRadiusMm: 5.75,
+nineRingRadiusMm: 13.75,
+eightRingRadiusMm: 21.75,
+sevenRingRadiusMm: 29.75,
+pelletRadiusMm: 2.25,
+loopId: null,
+moveDX: 0,
+moveDY: 0,
+moveInterval: null,
+};
+
+// ──────────────────────────────────────
+// DOM REFERENCES
+// ──────────────────────────────────────
+const $setup = document.getElementById('setup');
+const $gameScroll = document.getElementById('game-scroll');
+const $controls = document.getElementById('controls');
+const $targetSection = document.getElementById('target-section');
+const $targetMaster = document.getElementById('target-master');
+const $sightBase = document.getElementById('sight-base');
+const $aimTip = document.getElementById('aim-tip');
+const $bullseyeCoord = document.getElementById('bullseye-coord');
+const $liveTraceCanvas = document.getElementById('live-trace-canvas');
+const $traceCanvas = document.getElementById('trace-canvas');
+const $hudShot = document.getElementById('hud-shot');
+const $hudTimer = document.getElementById('hud-timer');
+const $hudLast = document.getElementById('hud-last');
+const $anaScore = document.getElementById('ana-score');
+const $aggCount = document.getElementById('agg-count');
+const $aggTotal = document.getElementById('agg-total');
+const $aggAvg = document.getElementById('agg-avg');
+const $aggBest = document.getElementById('agg-best');
+const $coachLine = document.getElementById('coach-line');
+const $scHold = document.getElementById('sc-hold');
+const $scReal = document.getElementById('sc-real');
+const $scTime = document.getElementById('sc-time');
+const $scDist = document.getElementById('sc-dist');
+// CHANGES MADE: Mapped the DOM element for the new Drop feature
+const $scDrop = document.getElementById('sc-drop');
+const $analysisPlaceholder = document.getElementById('analysis-placeholder');
+const $analysisContent = document.getElementById('analysis-content');
+const $scrollHint = document.getElementById('scroll-hint');
+const $fireBtn = document.getElementById('fire-btn');
+const $continueBtn = document.getElementById('continue-btn');
+const $startBtn = document.getElementById('start-btn');
+
+// ──────────────────────────────────────
+// GEOMETRY / SCALING
+// ──────────────────────────────────────
+function applyViewportScale() {
+const minDim = Math.min(window.innerWidth, window.innerHeight);
+const scale = Math.max(0.92, Math.min(1.12, minDim / 820));
+document.documentElement.style.setProperty('--target-scale', scale.toFixed(3));
+}
+
+function updateTargetGeometry() {
+const targetRect = $targetMaster.getBoundingClientRect();
+
+// The visual target card is 1.70cm in CSS, which we treat as 17mm for scoring.
+const targetDiameterMm = 17;
+state.pxPerMm = targetRect.width / targetDiameterMm;
+state.targetRadiusMm = targetDiameterMm / 2;
+}
+
+function getBullCenter() {
+const rect = $bullseyeCoord.getBoundingClientRect();
+return {
+x: rect.left + rect.width / 2,
+y: rect.top + rect.height / 2
+};
+}
+
+function scoreFromDistanceMm(distMm) {
+const r10 = state.tenRingRadiusMm;
+const r9 = state.nineRingRadiusMm;
+const r8 = state.eightRingRadiusMm;
+const r7 = state.sevenRingRadiusMm;
+
+if (distMm <= r10) {
+return 10.9 - (distMm / r10) * 0.9;
+}
+if (distMm <= r9) {
+return 10.0 - ((distMm - r10) / (r9 - r10)) * 1.0;
+}
+if (distMm <= r8) {
+return 9.0 - ((distMm - r9) / (r8 - r9)) * 1.0;
+}
+if (distMm <= r7) {
+return 8.0 - ((distMm - r8) / (r7 - r8)) * 1.0;
+}
+return Math.max(0, 7.0 - ((distMm - r7) / 10));
+}
+
+function getCoachLine(score, stability, distMm) {
+if (score >= 10.5) return 'Coach: dead center. Repeat that grip and trigger press exactly the same way.';
+if (score >= 10.0) return stability >= 92 ? 'Coach: very clean. Hold a fraction longer before the break.' : 'Coach: strong shot. Quiet the last wobble and stay patient.';
+if (score >= 9.0) return stability >= 88 ? 'Coach: good base. Reduce wrist tension and keep the front sight honest.' : 'Coach: solid shape. Let the sight settle before committing.';
+if (score >= 8.0) return 'Coach: the rhythm is there. Slow the release and trust the hold.';
+return 'Coach: reset the stance, breathe, and rebuild the sight picture from zero.';
+}
+
+function updateAggregateBoard() {
+const avg = state.shotsFired ? state.total / state.shotsFired : 0;
+$aggCount.innerText = state.shotsFired.toString();
+$aggTotal.innerText = state.total.toFixed(1);
+$aggAvg.innerText = avg.toFixed(2);
+$aggBest.innerText = state.bestScore.toFixed(1);
+}
+
+// ──────────────────────────────────────
+// INITIALIZATION
+// ──────────────────────────────────────
+function initGame() {
+playClickSound();
+applyViewportScale();
+updateTargetGeometry();
+$setup.classList.add('hidden');
+$gameScroll.classList.add('active');
+$controls.classList.remove('hidden');
+document.body.classList.add('game-active');
+state.startTime = Date.now();
+state.shot = 1;
+state.total = 0;
+state.shotsFired = 0;
+state.bestScore = 0;
+state.shotHistory = [];
+state.isFiring = false;
+$analysisPlaceholder.style.display = 'block';
+$analysisContent.classList.remove('visible');
+$hudLast.innerText = '-';
+$scrollHint.classList.remove('hidden-hint');
+$coachLine.innerText = 'Coach: settle the sight picture and break the shot cleanly.';
+updateAggregateBoard();
+resetShot();
+updateSightPosition();
+resizeLiveCanvas();
+loop();
+// Scroll to top
+window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function resetShot() {
+state.currentTrace = [];
+state.isFiring = false;
+state.sightX = (Math.random() - 0.5) * 40;
+state.sightY = (Math.random() - 0.5) * 40;
+state.moveDX = 0;
+state.moveDY = 0;
+$hudShot.innerText = state.shot;
+$analysisPlaceholder.style.display = 'block';
+$analysisContent.classList.remove('visible');
+$scrollHint.classList.remove('hidden-hint');
+applyViewportScale();
+updateTargetGeometry();
+updateSightPosition();
+resizeLiveCanvas();
+}
+
+function resizeLiveCanvas() {
+const rect = $targetSection.getBoundingClientRect();
+$liveTraceCanvas.width = rect.width;
+$liveTraceCanvas.height = rect.height;
+// Also resize trace canvas if visible
+if ($traceCanvas.offsetWidth > 0) {
+$traceCanvas.width = $traceCanvas.offsetWidth;
+$traceCanvas.height = $traceCanvas.offsetHeight;
+}
+updateTargetGeometry();
+}
+
+// ──────────────────────────────────────
+// MAIN LOOP
+// ──────────────────────────────────────
+function loop() {
+if (state.isFiring) {
+state.loopId = requestAnimationFrame(loop);
+return;
+}
+
+const now = Date.now();
+const elapsed = (now - state.startTime) / 1000;
+$hudTimer.innerText = elapsed.toFixed(2);
+
+// Apply manual movement (d-pad)
+if (state.moveDX !== 0 || state.moveDY !== 0) {
+state.sightX += state.moveDX;
+state.sightY += state.moveDY;
+}
+
+// CHANGES MADE: Reduced gun oscillation by 40% (Multiplied values by 0.6)
+const tremorX = (Math.sin(now * 0.005) * 4 + Math.cos(now * 0.011) * 2) * 0.6;
+const tremorY = (Math.cos(now * 0.004) * 4 + Math.sin(now * 0.009) * 2) * 0.6;
+
+updateSightPosition(tremorX, tremorY);
+
+// Calculate 2D position relative to bullseye center
+const bullCenter = getBullCenter();
+const tipRect = $aimTip.getBoundingClientRect();
+
+const pos = {
+x: tipRect.left + tipRect.width / 2 - bullCenter.x,
+y: tipRect.top + tipRect.height / 2 - bullCenter.y,
+t: now,
+};
+
+state.currentTrace.push(pos);
+// Keep only last 2 seconds
+state.currentTrace = state.currentTrace.filter(p => now - p.t < 2000);
+
+drawLiveTrace();
+state.loopId = requestAnimationFrame(loop);
+}
+
+function updateSightPosition(tremorX = 0, tremorY = 0) {
+const totalX = state.sightX + tremorX;
+const totalY = state.sightY + tremorY;
+$sightBase.style.transform = `translate(calc(-50% + ${totalX}px), calc(-50% + ${totalY}px))`;
+}
+
+function drawLiveTrace() {
+const ctx = $liveTraceCanvas.getContext('2d');
+const w = $liveTraceCanvas.width;
+const h = $liveTraceCanvas.height;
+ctx.clearRect(0, 0, w, h);
+
+if (state.currentTrace.length < 2) return;
+
+const cx = w / 2;
+const cy = h / 2;
+
+ctx.beginPath();
+ctx.strokeStyle = 'rgba(37, 99, 235, 0.55)';
+ctx.lineWidth = 2;
+ctx.lineCap = 'round';
+ctx.lineJoin = 'round';
+
+state.currentTrace.forEach((p, i) => {
+const sx = cx + p.x;
+const sy = cy + p.y;
+if (i === 0) ctx.moveTo(sx, sy);
+else ctx.lineTo(sx, sy);
+});
+ctx.stroke();
+
+// Draw a small dot at the current position
+if (state.currentTrace.length > 0) {
+const last = state.currentTrace[state.currentTrace.length - 1];
+ctx.fillStyle = 'rgba(37, 99, 235, 0.8)';
+ctx.beginPath();
+ctx.arc(cx + last.x, cy + last.y, 3, 0, Math.PI * 2);
+ctx.fill();
+}
+}
+
+// ──────────────────────────────────────
+// FIRE SHOT
+// ──────────────────────────────────────
+function fire() {
+if (state.isFiring) return;
+state.isFiring = true;
+
+playShotSound();
+updateTargetGeometry();
+
+const bullCenter = getBullCenter();
+const tipRect = $aimTip.getBoundingClientRect();
+
+const dx = tipRect.left + tipRect.width / 2 - bullCenter.x;
+const dy = tipRect.top + tipRect.height / 2 - bullCenter.y;
+const distPx = Math.hypot(dx, dy);
+const distMm = distPx / state.pxPerMm;
+const effectiveDistMm = Math.max(0, distMm - state.pelletRadiusMm);
+
+const rawScore = scoreFromDistanceMm(effectiveDistMm);
+const score = Math.max(0, Math.min(10.9, rawScore));
+const scoreText = score.toFixed(1);
+
+state.total += parseFloat(scoreText);
+state.shotsFired += 1;
+state.bestScore = Math.max(state.bestScore, parseFloat(scoreText));
+
+// CHANGES MADE: Generates a random drop value strictly between 1.90 and 1.99 cm
+const pelletDrop = (1.9 + (Math.random() * 0.09)).toFixed(2) + ' cm';
+
+const record = {
+trace: [...state.currentTrace],
+score: scoreText,
+dist: distMm.toFixed(2),
+time: $hudTimer.innerText,
+drop: pelletDrop // Added variable to record payload
+};
+state.shotHistory.push(record);
+if (state.shotHistory.length > 6) state.shotHistory.shift();
+
+$hudLast.innerText = record.score;
+showAnalysis(record);
+}
+
+function showAnalysis(record) {
+$analysisPlaceholder.style.display = 'none';
+$analysisContent.classList.add('visible');
+$scrollHint.classList.add('hidden-hint');
+
+$anaScore.innerText = record.score;
+$scTime.innerText = record.time + 's';
+$scDist.innerText = record.dist;
+
+// CHANGES MADE: Print the calculated drop to the UI
+$scDrop.innerText = record.drop;
+
+// Stability calc based on trace movement
+let movement = 0;
+for (let i = 1; i < record.trace.length; i++) {
+movement += Math.hypot(
+record.trace[i].x - record.trace[i - 1].x,
+record.trace[i].y - record.trace[i - 1].y
+);
+}
+const stability = Math.max(0, Math.min(99, Math.round(100 - movement * 0.2)));
+$scHold.innerText = stability + '%';
+$scReal.innerText = Math.round(stability * 0.95) + '%';
+
+const scoreValue = parseFloat(record.score);
+$coachLine.innerText = getCoachLine(scoreValue, stability, parseFloat(record.dist));
+updateAggregateBoard();
+
+drawScattMonitor();
+
+// Auto-scroll to analysis
+setTimeout(() => {
+document.getElementById('analysis-section').scrollIntoView({
+behavior: 'smooth',
+block: 'start',
+});
+}, 150);
+
+// Play reveal sound shortly after shot
+setTimeout(() => {
+playAnalysisRevealSound();
+}, 250);
+}
+
+function drawScattMonitor() {
+const canvas = $traceCanvas;
+const ctx = canvas.getContext('2d');
+const w = canvas.width = canvas.offsetWidth || 400;
+const h = canvas.height = canvas.offsetHeight || 220;
+const cx = w / 2;
+const cy = h / 2;
+
+ctx.clearRect(0, 0, w, h);
+
+// Draw concentric rings
+for (let i = 1; i < 7; i++) {
+ctx.strokeStyle = i === 6 ? '#555' : '#333';
+ctx.lineWidth = i === 6 ? 1.5 : 0.6;
+ctx.beginPath();
+ctx.arc(cx, cy, i * 22, 0, Math.PI * 2);
+ctx.stroke();
+}
+
+// Black center
+ctx.fillStyle = '#000';
+ctx.beginPath();
+ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+ctx.fill();
+
+// Draw history overlay
+state.shotHistory.forEach((sh, idx) => {
+const isLatest = idx === state.shotHistory.length - 1;
+ctx.beginPath();
+ctx.lineWidth = isLatest ? 2.2 : 0.8;
+ctx.strokeStyle = isLatest ? '#f59e0b' : 'rgba(140,140,140,0.25)';
+ctx.lineCap = 'round';
+
+sh.trace.forEach((p, i) => {
+const tx = cx + (p.x * 2.8);
+const ty = cy + (p.y * 2.8);
+if (i === 0) ctx.moveTo(tx, ty);
+else ctx.lineTo(tx, ty);
+});
+ctx.stroke();
+
+// Draw shot endpoint
+if (sh.trace.length > 0) {
+const lastPos = sh.trace[sh.trace.length - 1];
+ctx.fillStyle = isLatest ? '#f59e0b' : '#888';
+ctx.beginPath();
+ctx.arc(cx + (lastPos.x * 2.8), cy + (lastPos.y * 2.8), isLatest ? 4 : 2.5,
+0, Math.PI * 2);
+ctx.fill();
+if (isLatest) {
+ctx.strokeStyle = '#fff';
+ctx.lineWidth = 1;
+ctx.stroke();
+}
+}
+});
+}
+
+function resetForNextShot() {
+playClickSound();
+state.shot++;
+state.startTime = Date.now();
+$analysisPlaceholder.style.display = 'block';
+$analysisContent.classList.remove('visible');
+$scrollHint.classList.remove('hidden-hint');
+resetShot();
+updateSightPosition();
+resizeLiveCanvas();
+// Scroll back to target
+$targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+// Resume loop
+state.isFiring = false;
+if (state.loopId) cancelAnimationFrame(state.loopId);
+loop();
+}
+
+// ──────────────────────────────────────
+// D-PAD CONTROLS
+// ──────────────────────────────────────
+function startMove(dx, dy) {
+state.moveDX = dx;
+state.moveDY = dy;
+}
+
+function stopMove() {
+state.moveDX = 0;
+state.moveDY = 0;
+}
+
+// Mouse & Touch handlers for d-pad buttons
+document.querySelectorAll('.d-btn').forEach(btn => {
+const dx = parseInt(btn.getAttribute('data-dx'));
+const dy = parseInt(btn.getAttribute('data-dy'));
+
+btn.addEventListener('mousedown', (e) => {
+e.preventDefault();
+startMove(dx, dy);
+});
+btn.addEventListener('mouseup', (e) => {
+e.preventDefault();
+stopMove();
+});
+btn.addEventListener('mouseleave', (e) => {
+stopMove();
+});
+btn.addEventListener('touchstart', (e) => {
+e.preventDefault();
+startMove(dx, dy);
+}, { passive: false });
+btn.addEventListener('touchend', (e) => {
+e.preventDefault();
+stopMove();
+});
+btn.addEventListener('touchcancel', () => {
+stopMove();
+});
+});
+
+// Global mouseup/touchend to catch releases outside buttons
+document.addEventListener('mouseup', () => stopMove());
+document.addEventListener('touchend', () => stopMove());
+
+// ──────────────────────────────────────
+// FIRE BUTTON
+// ──────────────────────────────────────
+$fireBtn.addEventListener('mousedown', (e) => {
+if (e.button !== 0) return;
+e.preventDefault();
+fire();
+});
+$fireBtn.addEventListener('touchend', (e) => {
+e.preventDefault();
+fire();
+});
+$fireBtn.addEventListener('contextmenu', (e) => {
+e.preventDefault();
+});
+
+// ──────────────────────────────────────
+// CONTINUE BUTTON
+// ──────────────────────────────────────
+$continueBtn.addEventListener('click', (e) => {
+e.preventDefault();
+resetForNextShot();
+});
+$continueBtn.addEventListener('touchend', (e) => {
+e.preventDefault();
+resetForNextShot();
+});
+
+// ──────────────────────────────────────
+// START BUTTON
+// ──────────────────────────────────────
+$startBtn.addEventListener('click', (e) => {
+e.preventDefault();
+initGame();
+});
+$startBtn.addEventListener('touchend', (e) => {
+e.preventDefault();
+initGame();
+});
+
+// ──────────────────────────────────────
+// RESIZE HANDLER
+// ──────────────────────────────────────
+window.addEventListener('resize', () => {
+applyViewportScale();
+resizeLiveCanvas();
+if ($analysisContent.classList.contains('visible')) {
+drawScattMonitor();
+}
+});
+
+// ──────────────────────────────────────
+// PREVENT DOUBLE-TAP ZOOM ON CONTROLS
+// ──────────────────────────────────────
+document.getElementById('controls').addEventListener('touchstart', function(e) {
+if (e.target.closest('.d-btn') || e.target.closest('#fire-btn')) {
+e.preventDefault();
+}
+}, { passive: false });
+
+// ──────────────────────────────────────
+// INITIAL SETUP
+// ──────────────────────────────────────
+// Ensure game scroll is hidden initially
+applyViewportScale();
+$gameScroll.classList.remove('active');
+$controls.classList.add('hidden');
+document.body.classList.remove('game-active');
+$setup.classList.remove('hidden');
+updateAggregateBoard();
+})();
+</script>
+</body>
+</html>

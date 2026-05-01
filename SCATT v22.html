@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sightline MVP | Steyr LP Edition</title>
+<style>
+:root {
+/* Professional University Palette */
+--bg-main: #0B2545;
+--bg-grad: radial-gradient(circle at center, #112F55 0%, #0B2545 100%);
+--panel-bg: rgba(11, 37, 69, 0.95);
+--text-light: #F4F1EB;
+--text-muted: #8CA3BC;
+--accent-teal: #0FB3A0;
+--accent-gold: #D4AF37;
+--trace-live: #0FB3A0;
+--danger: #DC2626;
+--card-border: rgba(212, 175, 55, 0.3);
+}
+
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+background: var(--bg-main);
+color: var(--text-light);
+min-height: 100vh;
+overflow: hidden;
+cursor: crosshair;
+}
+
+body.game-active { overflow: auto; }
+
+.screen {
+position: relative;
+min-height: 100vh;
+width: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.hidden { display: none !important; }
+
+.card {
+background: var(--panel-bg);
+padding: 2rem;
+border-radius: 1rem;
+border: 1px solid var(--card-border);
+width: 95%;
+max-width: 440px;
+box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+text-align: center;
+}
+
+h1 {
+font-weight: 800;
+text-transform: uppercase;
+letter-spacing: 2px;
+color: var(--accent-gold);
+font-size: 1.4rem;
+margin-bottom: 0.5rem;
+}
+
+/* SCATT HUD */
+.match-stats {
+position: fixed;
+top: 0;
+width: 100%;
+background: rgba(0, 0, 0, 0.8);
+color: var(--accent-teal);
+padding: 10px 20px;
+display: flex;
+justify-content: space-between;
+font-family: 'Courier New', monospace;
+z-index: 100;
+border-bottom: 1px solid var(--accent-gold);
+}
+
+.aggregate-score { color: var(--accent-gold); font-weight: bold; }
+
+/* Target Environment */
+#game-scroll {
+display: none;
+flex-direction: column;
+min-height: 100vh;
+padding-top: 50px;
+}
+
+#game-scroll.active { display: flex; }
+
+#target-section {
+position: relative;
+height: 70vh;
+display: flex;
+align-items: center;
+justify-content: center;
+background: var(--bg-grad);
+overflow: hidden;
+}
+
+#target-master {
+position: relative;
+background: #FFF;
+border-radius: 50%;
+box-shadow: 0 0 40px rgba(0,0,0,0.5);
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.ring-black { position: absolute; border-radius: 50%; background: #000; }
+.ring-10 { position: absolute; border-radius: 50%; border: 1px solid #555; }
+#bullseye-coord { position: absolute; width: 1px; height: 1px; }
+
+/* Sight Sytem */
+#sight-base {
+position: absolute;
+top: 50%;
+left: 50%;
+z-index: 10;
+pointer-events: none;
+will-change: transform;
+}
+
+.front-i {
+position: absolute;
+bottom: 50%;
+left: 50%;
+transform: translateX(-50%);
+width: 14px;
+height: 45px;
+background: #000;
+}
+
+.rear-u {
+position: absolute;
+bottom: 5px;
+left: 50%;
+transform: translateX(-50%);
+width: 70px;
+height: 45px;
+border-left: 24px solid #000;
+border-right: 24px solid #000;
+border-bottom: 24px solid #000;
+}
+
+#aim-tip {
+position: absolute;
+top: 0;
+left: 50%;
+width: 4px;
+height: 4px;
+background: transparent; /* Red dot hidden during pro sessions */
+transform: translate(-50%, -50%);
+}
+
+/* Analysis Box */
+#analysis-section { padding: 2rem 1rem; background: #081B33; }
+
+.coaching-box {
+background: rgba(15, 179, 160, 0.1);
+padding: 15px;
+border-radius: 8px;
+margin: 15px 0;
+border-left: 4px solid var(--accent-gold);
+text-align: left;
+}
+
+.stat-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 10px;
+margin: 15px 0;
+}
+
+.stat-card {
+background: rgba(255,255,255,0.05);
+padding: 10px;
+border-radius: 4px;
+text-align: left;
+}
+
+.stat-card label { display: block; font-size: 0.7rem; color: var(--text-muted); }
+.stat-card span { font-size: 1.1rem; font-weight: bold; color: var(--accent-gold); }
+
+.btn {
+background: var(--accent-teal);
+color: var(--bg-main);
+border: none;
+padding: 1rem;
+border-radius: 0.5rem;
+font-weight: 800;
+cursor: pointer;
+width: 100%;
+text-transform: uppercase;
+transition: 0.2s;
+}
+
+.btn:active { transform: scale(0.96); }
+
+/* Controls */
+#controls {
+position: fixed;
+bottom: 30px;
+width: 100%;
+display: flex;
+justify-content: space-around;
+padding: 0 20px;
+pointer-events: none;
+}
+
+.d-pad {
+pointer-events: auto;
+width: 120px;
+height: 120px;
+background: rgba(255,255,255,0.1);
+border-radius: 50%;
+position: relative;
+}
+
+.d-btn {
+position: absolute;
+width: 40px;
+height: 40px;
+background: #FFF;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+cursor: pointer;
+color: #000;
+}
+
+#fire-btn {
+pointer-events: auto;
+width: 80px;
+height: 80px;
+border-radius: 50%;
+background: var(--danger);
+border: 4px solid #FFF;
+color: #FFF;
+font-weight: 900;
+box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+}
+
+canvas { width: 100%; height: 100%; }
+#trace-monitor { height: 200px; background: #000; border-radius: 8px; margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<div id="setup" class="screen">
+<div class="card">
+<h1>SIGHTLINE <span style="color:var(--accent-teal)">PRO</span></h1>
+<p style="color:var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Diagnostic Shooting Environment</p>
+<button class="btn" onclick="initSession()">Start Session</button>
+</div>
+</div>
+
+<div id="game-scroll">
+<div class="match-stats">
+<div>SHOT: <span id="hud-shot">1</span>/60</div>
+<div class="aggregate-score">TOTAL: <span id="hud-total">0.0</span></div>
+<div style="color: var(--accent-teal)">TIMER: <span id="hud-timer">0.00</span></div>
+</div>
+
+<div id="target-section">
+<div id="target-master">
+<div class="ring-black"></div>
+<div class="ring-10"></div>
+<div id="bullseye-coord"></div>
+</div>
+<canvas id="live-trace-canvas" style="position:absolute; inset:0; pointer-events:none;"></canvas>
+<div id="sight-base">
+<div class="front-i"><div id="aim-tip"></div></div>
+<div class="rear-u"></div>
+</div>
+</div>
+
+<div id="analysis-section">
+<div class="card" style="max-width: 100%;">
+<div id="analysis-content" class="hidden">
+<div style="font-size: 0.8rem; color: var(--text-muted);">LATEST SCORE</div>
+<div style="font-size: 3.5rem; color: var(--accent-teal); font-weight: 900;" id="ana-score">10.6</div>
+
+<div class="coaching-box">
+<strong style="color:var(--accent-gold); font-size: 0.7rem;">AI COACH ANALYSIS</strong>
+<p id="coaching-text" style="font-size: 0.9rem;"></p>
+</div>
+
+<div id="trace-monitor">
+<canvas id="history-canvas"></canvas>
+</div>
+
+<div class="stat-grid">
+<div class="stat-card"><label>STABILITY (S1)</label><span id="sc-hold">92%</span></div>
+<div class="stat-card"><label>CONTROL (S2)</label><span id="sc-real">88%</span></div>
+<div class="stat-card"><label>TIME</label><span id="sc-time">4.2s</span></div>
+<div class="stat-card"><label>DEVIATION</label><span id="sc-dist">1.2mm</span></div>
+</div>
+<button class="btn" style="background:var(--accent-gold)" onclick="nextShot()">Next Shot</button>
+</div>
+<p id="placeholder-text" style="color:var(--text-muted)">Awaiting shot data...</p>
+</div>
+</div>
+</div>
+
+<div id="controls" class="hidden">
+<div class="d-pad">
+<div class="d-btn" style="top:0; left:40px;" onmousedown="move(0,-2)" onmouseup="stopMove()">↑</div>
+<div class="d-btn" style="bottom:0; left:40px;" onmousedown="move(0,2)" onmouseup="stopMove()">↓</div>
+<div class="d-btn" style="top:40px; left:0;" onmousedown="move(-2,0)" onmouseup="stopMove()">←</div>
+<div class="d-btn" style="top:40px; right:0;" onmousedown="move(2,0)" onmouseup="stopMove()">→</div>
+</div>
+<button id="fire-btn" onmousedown="handleTrigger()">SHOT</button>
+</div>
+
+<script>
+const state = {
+shot: 1,
+total: 0,
+sightX: 0,
+sightY: 0,
+npaX: 0,
+npaY: 0,
+moveDX: 0,
+moveDY: 0,
+isFiring: false,
+triggerPulling: false,
+startTime: 0,
+trace: [],
+history: [],
+pxPerMm: 1
+};
+
+const ISSF = { ring10: 11.5, ring7: 59.5, card: 155.5, pellet: 4.5 };
+
+function initSession() {
+document.getElementById('setup').classList.add('hidden');
+document.getElementById('game-scroll').classList.add('active');
+document.getElementById('controls').classList.remove('hidden');
+document.body.classList.add('game-active');
+state.startTime = Date.now();
+setupTarget();
+loop();
+}
+
+function setupTarget() {
+const size = Math.min(window.innerWidth, window.innerHeight * 0.6) * 0.8;
+const tm = document.getElementById('target-master');
+tm.style.width = tm.style.height = size + 'px';
+state.pxPerMm = size / ISSF.card;
+
+document.querySelector('.ring-black').style.width = document.querySelector('.ring-black').style.height = (ISSF.ring7 * state.pxPerMm) + 'px';
+document.querySelector('.ring-10').style.width = document.querySelector('.ring-10').style.height = (ISSF.ring10 * state.pxPerMm) + 'px';
+
+const canvas = document.getElementById('live-trace-canvas');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight * 0.7;
+}
+
+function move(dx, dy) { state.moveDX = dx; state.moveDY = dy; }
+function stopMove() { state.moveDX = 0; state.moveDY = 0; }
+
+function handleTrigger() {
+if (state.isFiring || state.triggerPulling) return;
+state.triggerPulling = true;
+
+// Trigger Break Delay (Simulates finger pressure time)
+const breakDelay = 80 + Math.random() * 70;
+setTimeout(fireShot, breakDelay);
+}
+
+function fireShot() {
+state.isFiring = true;
+state.triggerPulling = false;
+
+const bull = document.getElementById('bullseye-coord').getBoundingClientRect();
+const tip = document.getElementById('aim-tip').getBoundingClientRect();
+
+const dx = (tip.left + 2) - (bull.left + 0.5);
+const dy = (tip.top + 2) - (bull.top + 0.5);
+const distMm = Math.hypot(dx, dy) / state.pxPerMm;
+
+// ISSF Linear Scoring Approximation
+let score = Math.max(0, 10.9 - (distMm / (ISSF.ring10/2)) * 1.0).toFixed(1);
+if (score > 10.9) score = 10.9;
+
+state.total += parseFloat(score);
+document.getElementById('hud-total').innerText = state.total.toFixed(1);
+
+showAnalysis(score, distMm);
+}
+
+function showAnalysis(score, dist) {
+document.getElementById('placeholder-text').classList.add('hidden');
+document.getElementById('analysis-content').classList.remove('hidden');
+document.getElementById('ana-score').innerText = score;
+
+// Weighted Stability Logic
+const lookback = Math.min(state.trace.length, 20);
+let moveSum = 0;
+for(let i = state.trace.length - lookback + 1; i < state.trace.length; i++) {
+const d = Math.hypot(state.trace[i].x - state.trace[i-1].x, state.trace[i].y - state.trace[i-1].y);
+moveSum += d * (i / state.trace.length);
+}
+const stability = Math.max(0, 100 - Math.round(moveSum * 0.9));
+
+document.getElementById('sc-hold').innerText = stability + '%';
+document.getElementById('sc-dist').innerText = dist.toFixed(2) + 'mm';
+document.getElementById('sc-time').innerText = ((Date.now() - state.startTime)/1000).toFixed(1) + 's';
+
+document.getElementById('coaching-text').innerText = score > 10 ? "Clean break. Sight alignment remained centered through the trigger press." : "Vertical stringing detected. Check your breathing rhythm.";
+
+drawHistory();
+document.getElementById('analysis-section').scrollIntoView({behavior:'smooth'});
+}
+
+function nextShot() {
+state.shot++;
+document.getElementById('hud-shot').innerText = state.shot;
+state.isFiring = false;
+state.trace = [];
+state.startTime = Date.now();
+document.getElementById('placeholder-text').classList.remove('hidden');
+document.getElementById('analysis-content').classList.add('hidden');
+window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function loop() {
+if (!state.isFiring) {
+const now = Date.now();
+// NPA Pull + Movement
+state.sightX += (state.npaX - state.sightX) * 0.02 + state.moveDX;
+state.sightY += (state.npaY - state.sightY) * 0.02 + state.moveDY;
+
+// Jitter/Tremor
+const tx = Math.sin(now * 0.006) * 3;
+const ty = Math.cos(now * 0.004) * 3;
+
+const finalX = state.sightX + tx;
+const finalY = state.sightY + ty;
+
+document.getElementById('sight-base').style.transform = `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px))`;
+document.getElementById('hud-timer').innerText = ((now - state.startTime)/1000).toFixed(2);
+
+state.trace.push({x: finalX, y: finalY, t: now});
+if(state.trace.length > 100) state.trace.shift();
+
+drawLiveTrace();
+}
+requestAnimationFrame(loop);
+}
+
+function drawLiveTrace() {
+const canvas = document.getElementById('live-trace-canvas');
+const ctx = canvas.getContext('2d');
+ctx.clearRect(0,0,canvas.width, canvas.height);
+if(state.trace.length < 2) return;
+
+ctx.beginPath();
+ctx.strokeStyle = '#0FB3A0';
+ctx.lineWidth = 2;
+const ox = canvas.width/2;
+const oy = canvas.height/2;
+
+state.trace.forEach((p, i) => {
+if(i === 0) ctx.moveTo(ox + p.x, oy + p.y);
+else ctx.lineTo(ox + p.x, oy + p.y);
+});
+ctx.stroke();
+}
+
+function drawHistory() {
+const canvas = document.getElementById('history-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = canvas.offsetWidth;
+canvas.height = canvas.offsetHeight;
+const cx = canvas.width/2;
+const cy = canvas.height/2;
+
+ctx.strokeStyle = '#333';
+for(let r=20; r<100; r+=20) {
+ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+}
+
+ctx.beginPath();
+ctx.strokeStyle = '#D4AF37';
+state.trace.forEach((p, i) => {
+if(i === 0) ctx.moveTo(cx + p.x, cy + p.y);
+else ctx.lineTo(cx + p.x, cy + p.y);
+});
+ctx.stroke();
+}
+</script>
+</body>
+</html>
+

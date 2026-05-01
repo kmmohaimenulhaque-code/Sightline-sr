@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SCATT Pro | Master Analysis Edition</title>
+<style>
+:root {
+/* Precise 10m target scaling for 1m viewing distance */
+--target-card-size: 1.70cm;
+--black-ring-size: 0.59cm;
+--ten-ring-size: 0.12cm;
+
+/* Theme */
+--bg-deep: #0a0c10;
+--panel-bg: #161b22;
+--accent-gold: #fbbf24;
+--trace-live: #4ade80; /* Green for current movement */
+--danger-red: #ef4444;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+body {
+background-color: var(--bg-deep);
+color: #e6edf3;
+overflow: hidden;
+height: 100vh;
+display: flex;
+flex-direction: column;
+}
+
+/* 3D Depth Viewport */
+#viewport {
+flex: 1;
+position: relative;
+perspective: 1000px;
+background: radial-gradient(circle at center, #1c2128 0%, #0a0c10 100%);
+display: flex;
+align-items: center;
+justify-content: center;
+overflow: hidden;
+}
+
+/* 3D Target Lighting */
+.target-card {
+width: var(--target-card-size);
+height: var(--target-card-size);
+background: #f0f0f0;
+position: relative;
+display: flex;
+align-items: center;
+justify-content: center;
+box-shadow: 0 15px 35px rgba(0,0,0,0.7), inset 0 0 10px rgba(0,0,0,0.1);
+transform: rotateX(10deg);
+z-index: 1;
+}
+
+.black-ring {
+width: var(--black-ring-size);
+height: var(--black-ring-size);
+background: #111;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.ten-ring {
+width: var(--ten-ring-size);
+height: var(--ten-ring-size);
+border: 0.2px solid var(--danger-red);
+border-radius: 50%;
+}
+
+/* Live Trace Canvas */
+#trace-canvas {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+pointer-events: none;
+z-index: 2;
+}
+
+/* 3D Sight System */
+#sight-system {
+position: absolute;
+top: 50%; /* FIXED: Anchors sight to vertical center */
+left: 50%; /* FIXED: Anchors sight to horizontal center */
+pointer-events: none;
+z-index: 10;
+transform-style: preserve-3d;
+}
+
+.front-post {
+width: 14px;
+height: 44px;
+background: linear-gradient(to right, #000 0%, #222 50%, #000 100%);
+border-top: 2px solid #555;
+transform: translate(-50%, -100%) translateZ(60px);
+}
+
+.rear-u {
+width: 76px;
+height: 48px;
+border-left: 24px solid #050505;
+border-right: 24px solid #050505;
+border-bottom: 24px solid #050505;
+position: absolute;
+transform: translate(-50%, -35px) translateZ(20px);
+opacity: 0.95;
+}
+
+/* Analysis Tray (SCATT UI) */
+#analysis-panel {
+height: 260px;
+background: var(--panel-bg);
+border-top: 1px solid #30363d;
+padding: 15px;
+display: grid;
+grid-template-columns: 1fr 1fr 1fr;
+gap: 10px;
+z-index: 100;
+}
+
+.metric-card {
+background: rgba(0,0,0,0.2);
+padding: 10px;
+border-radius: 6px;
+border: 1px solid #30363d;
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+}
+
+.label { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-bottom: 4px; }
+.value { font-size: 22px; font-weight: 700; color: #fff; }
+.value.gold { color: var(--accent-gold); font-size: 32px; }
+
+.progress-bar-container {
+width: 100%;
+height: 6px;
+background: #21262d;
+border-radius: 3px;
+margin-top: 8px;
+overflow: hidden;
+}
+
+.bar { height: 100%; transition: width 0.3s; }
+.bar.hold { background: #3b82f6; }
+.bar.real { background: #10b981; }
+
+/* Controls */
+#ui-overlay {
+position: fixed;
+bottom: 280px;
+width: 100%;
+display: flex;
+justify-content: space-around;
+padding: 0 20px;
+pointer-events: none;
+}
+
+.joystick-guide {
+background: rgba(0,0,0,0.5);
+padding: 10px;
+border-radius: 50%;
+border: 1px dashed var(--accent-gold);
+color: var(--accent-gold);
+font-size: 12px;
+font-weight: bold;
+}
+
+#fire-btn {
+width: 80px;
+height: 80px;
+background: radial-gradient(circle, #ef4444, #7f1d1d);
+border: none;
+border-radius: 50%;
+color: white;
+font-weight: 900;
+box-shadow: 0 6px 0 #450a0a, 0 10px 20px rgba(0,0,0,0.5);
+cursor: pointer;
+pointer-events: auto;
+}
+
+#fire-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #450a0a; }
+
+.session-btns {
+grid-column: span 3;
+display: flex;
+gap: 10px;
+margin-top: 5px;
+}
+
+.btn-small {
+flex: 1;
+background: #21262d;
+border: 1px solid #30363d;
+color: #c9d1d9;
+padding: 8px;
+border-radius: 4px;
+font-size: 12px;
+font-weight: 600;
+cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="viewport">
+<canvas id="trace-canvas"></canvas>
+
+<div class="target-card" id="target-anchor">
+<div class="black-ring">
+<div class="ten-ring"></div>
+</div>
+</div>
+
+<div id="sight-system">
+<div class="rear-u"></div>
+<div class="front-post"></div>
+</div>
+</div>
+
+<div id="ui-overlay">
+<div class="joystick-guide">WASD</div>
+<button id="fire-btn">FIRE</button>
+</div>
+
+<div id="analysis-panel">
+<div class="metric-card" style="grid-row: span 2;">
+<div class="label">Shot Score</div>
+<div class="value gold" id="val-score">0.0</div>
+<div class="label" style="margin-top: 10px;">Shot No.</div>
+<div class="value" id="val-series">1 / 60</div>
+</div>
+
+<div class="metric-card">
+<div class="label">Hold Quality (%)</div>
+<div class="value" id="txt-hold">0%</div>
+<div class="progress-bar-container">
+<div class="bar hold" id="bar-hold" style="width: 0%"></div>
+</div>
+</div>
+
+<div class="metric-card">
+<div class="label">Realization (%)</div>
+<div class="value" id="txt-real">0%</div>
+<div class="progress-bar-container">
+<div class="bar real" id="bar-real" style="width: 0%"></div>
+</div>
+</div>
+
+<div class="metric-card">
+<div class="label">Hold Time (sec)</div>
+<div class="value" id="val-time">0.0</div>
+</div>
+
+<div class="metric-card">
+<div class="label">Stability (S1)</div>
+<div class="value" id="val-s1">--</div>
+</div>
+
+<div class="session-btns">
+<button class="btn-small">SAVE SESSION</button>
+<button class="btn-small" onclick="location.reload()">FINISH / RESET</button>
+</div>
+</div>
+
+<script>
+/* Core state tracking for 2D Muzzle Tracking */
+const state = {
+x: 0, y: 0,
+keys: { w: false, a: false, s: false, d: false },
+trace: [],
+startTime: Date.now(),
+shotActive: true,
+series: 1
+};
+
+const canvas = document.getElementById('trace-canvas');
+const ctx = canvas.getContext('2d');
+const $sight = document.getElementById('sight-system');
+const $fireBtn = document.getElementById('fire-btn');
+
+// Handle Window Resize
+function resize() {
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// WASD Keyboard Linkage
+window.addEventListener('keydown', (e) => { if(state.keys.hasOwnProperty(e.key.toLowerCase())) state.keys[e.key.toLowerCase()] = true; });
+window.addEventListener('keyup', (e) => { if(state.keys.hasOwnProperty(e.key.toLowerCase())) state.keys[e.key.toLowerCase()] = false; });
+
+function update() {
+if (!state.shotActive) return requestAnimationFrame(update);
+
+const speed = 1.8;
+const drift = 0.35;
+
+// WASD Input
+if (state.keys.w) state.y -= speed;
+if (state.keys.s) state.y += speed;
+if (state.keys.a) state.x -= speed;
+if (state.keys.d) state.x += speed;
+
+// Auto-Drift
+state.x += (Math.random() - 0.5) * drift;
+state.y += (Math.random() - 0.5) * drift;
+
+// Update Sight Position
+$sight.style.transform = `translate(${state.x}px, ${state.y}px)`;
+
+// Record 2D Muzzle Tracking Data
+const centerX = window.innerWidth / 2;
+const centerY = window.innerHeight / 2;
+state.trace.push({ x: centerX + state.x, y: centerY + state.y, t: Date.now() });
+
+if(state.trace.length > 300) state.trace.shift();
+
+// Update Hold Time
+const holdSec = ((Date.now() - state.startTime) / 1000).toFixed(1);
+document.getElementById('val-time').innerText = holdSec;
+
+drawTrace();
+requestAnimationFrame(update);
+}
+
+/* Visualized time-sequential trace logic */
+function drawTrace() {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+if (state.trace.length < 2) return;
+
+ctx.beginPath();
+ctx.strokeStyle = '#4ade80';
+ctx.lineWidth = 2;
+ctx.lineJoin = 'round';
+ctx.lineCap = 'round';
+
+ctx.moveTo(state.trace[0].x, state.trace[0].y);
+for (let i = 1; i < state.trace.length; i++) {
+ctx.lineTo(state.trace[i].x, state.trace[i].y);
+}
+ctx.stroke();
+
+const last = state.trace[state.trace.length - 1];
+ctx.fillStyle = '#fbbf24';
+ctx.beginPath();
+ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+ctx.fill();
+}
+
+function fire() {
+if (!state.shotActive) {
+state.shotActive = true;
+state.startTime = Date.now();
+state.trace = [];
+state.series++;
+document.getElementById('val-series').innerText = `${state.series} / 60`;
+return;
+}
+
+state.shotActive = false;
+const dist = Math.hypot(state.x, state.y);
+
+// Scoring Logic
+let score = (10.9 - (dist / 12)).toFixed(1);
+if (score < 0) score = 0;
+
+// Hold Quality and Realization metrics
+const holdQual = Math.max(0, 98 - (dist * 0.8)).toFixed(0);
+const realization = Math.max(0, 100 - (Math.random() * 15)).toFixed(0);
+
+document.getElementById('val-score').innerText = score;
+document.getElementById('txt-hold').innerText = holdQual + "%";
+document.getElementById('bar-hold').style.width = holdQual + "%";
+document.getElementById('txt-real').innerText = realization + "%";
+document.getElementById('bar-real').style.width = realization + "%";
+document.getElementById('val-s1').innerText = (dist / 4).toFixed(2);
+
+// Recoil Animation
+$sight.style.transition = 'transform 0.05s ease-out';
+$sight.style.transform = `translate(${state.x}px, ${state.y - 30}px)`;
+
+setTimeout(() => {
+$sight.style.transition = 'none';
+}, 100);
+}
+
+$fireBtn.addEventListener('click', fire);
+update();
+</script>
+
+</body>
+</html>
+
