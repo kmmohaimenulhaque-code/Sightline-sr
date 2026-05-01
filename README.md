@@ -165,8 +165,6 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ## Acknowledgments
 
 * Inspired by ISSF standards for air pistol shooting.
-* Thanks to the open-source community for Canvas and SVG techniques.
+     * Thanks to the open-source community for Canvas and SVG techniques.
 
----
 
-Once you have that, you can fill in the actual GitHub repo link, add the project files, and you’ll be set! Let me know if you want any tweaks!
