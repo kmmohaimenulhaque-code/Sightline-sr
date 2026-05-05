@@ -24,9 +24,9 @@ To run the simulator locally:
 1. Clone this repository:
 
    ```
-   git clone https://github.com/your-username/your-repo.git
+   git clone https://github.com/
    ```
-2. Open the `index.html` file in your browser (no external dependencies needed).
+2. Open the  file in your browser (no external dependencies needed).
 3. Enjoy the simulation!
 
     ## How It Works
