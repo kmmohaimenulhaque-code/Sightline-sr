@@ -24,7 +24,8 @@ To run the simulator locally:
 1. Clone this repository:
 
    ```
-   git clone https://github.com/
+   
+   git clone https://github.com/kmmohaimenulhaque-code/Sightline-sr
    ```
 2. Open the  file in your browser (no external dependencies needed).
 3. Enjoy the simulation!
